@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "baseName":            { "value": "myaiapp" },
+    "location":            { "value": "eastus" },
+    "imageTag":            { "value": "latest" },
+    "snowflakeAccount":    { "value": "xy12345.us-east-1" },
+    "snowflakeUser":       { "value": "myuser" },
+    "snowflakePassword":   { "value": "__REPLACE_VIA_CI__" },
+    "snowflakeWarehouse":  { "value": "COMPUTE_WH" },
+    "snowflakeDatabase":   { "value": "MY_DB" },
+    "snowflakeSchema":     { "value": "PUBLIC" },
+    "snowflakeRole":       { "value": "" },
+    "openaiApiKey":        { "value": "__REPLACE_VIA_CI__" }
+  }
+}

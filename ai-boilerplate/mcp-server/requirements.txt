@@ -1,0 +1,10 @@
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+mcp>=1.0.0                     # Model Context Protocol SDK
+snowflake-connector-python>=3.10.0
+pydantic>=2.7.0
+pydantic-settings>=2.3.0
+python-dotenv>=1.0.0
+# Azure Key Vault (prod)
+azure-identity>=1.16.0
+azure-keyvault-secrets>=4.8.0
