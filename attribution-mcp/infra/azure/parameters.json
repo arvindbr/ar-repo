@@ -1,0 +1,25 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "baseName":                { "value": "attribution" },
+    "location":                { "value": "eastus" },
+    "imageTag":                { "value": "latest" },
+    "snowflakeAccount":        { "value": "xy12345.us-east-1" },
+    "snowflakeUser":           { "value": "myuser" },
+    "snowflakePassword":       { "value": "__REPLACE_VIA_CI__" },
+    "snowflakeWarehouse":      { "value": "COMPUTE_WH" },
+    "snowflakeDatabase":       { "value": "MY_DB" },
+    "snowflakeSchema":         { "value": "PUBLIC" },
+    "snowflakeRole":           { "value": "" },
+    "attrTouchpointsTable":    { "value": "ATTRIBUTION.TOUCHPOINTS" },
+    "attrConversionsTable":    { "value": "ATTRIBUTION.CONVERSIONS" },
+    "attrSessionsTable":       { "value": "ATTRIBUTION.SESSIONS" },
+    "attrSpendTable":          { "value": "ATTRIBUTION.CHANNEL_SPEND" },
+    "attrLookbackDays":        { "value": "30" },
+    "attrHalflife":            { "value": "7.0" },
+    "attrDefaultModel":        { "value": "linear" },
+    "openaiApiKey":            { "value": "__REPLACE_VIA_CI__" },
+    "openaiModel":             { "value": "gpt-4o" }
+  }
+}
