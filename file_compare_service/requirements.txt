@@ -1,0 +1,28 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+pydantic-settings==2.5.2
+
+# Azure
+azure-storage-blob==12.22.0
+azure-identity==1.18.0
+
+# Data processing
+pandas==2.2.3
+openpyxl==3.1.5          # Excel export
+chardet==5.2.0            # encoding detection
+python-multipart==0.0.12
+
+# OpenAI
+openai==1.51.0
+
+# Utilities
+python-dotenv==1.0.1
+httpx==0.27.2
+aiofiles==24.1.0
+tenacity==9.0.0           # retry logic
+
+# Testing
+pytest==8.3.3
+pytest-asyncio==0.24.0
+httpx==0.27.2
