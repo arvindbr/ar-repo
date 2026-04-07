@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Domain MCP Server Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,400;0,600;1,300&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0f14;
+    --surface: #13161d;
+    --surface2: #1a1e28;
+    --surface3: #21263300;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #e8eaf0;
+    --muted: #7a8099;
+    --accent: #6c8cff;
+    --accent2: #a78bfa;
+    --teal: #2dd4bf;
+    --amber: #f59e0b;
+    --coral: #f87171;
+    --green: #4ade80;
+    --purple: #c084fc;
+    --pink: #f472b6;
+
+    --layer-client: rgba(108,140,255,0.08);
+    --layer-gateway: rgba(167,139,250,0.08);
+    --layer-main: rgba(45,212,191,0.08);
+    --layer-domain: rgba(192,132,252,0.07);
+    --layer-data: rgba(74,222,128,0.07);
+
+    --font-mono: 'DM Mono', monospace;
+    --font-display: 'Fraunces', serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    min-height: 100vh;
+    padding: 32px 24px 60px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  header h1 {
+    font-family: var(--font-display);
+    font-weight: 300;
+    font-size: 28px;
+    letter-spacing: -0.5px;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+  header h1 em { font-style: italic; color: var(--teal); }
+  header p {
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* ── Layer wrapper ── */
+  .arch {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .layer {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px 20px 20px;
+    position: relative;
+    margin-bottom: 0;
+  }
+  .layer + .layer { margin-top: -1px; border-top-left-radius: 0; border-top-right-radius: 0; }
+  .layer:first-child { border-radius: 16px 16px 0 0; }
+  .layer:last-child  { border-radius: 0 0 16px 16px; }
+
+  .layer-label {
+    position: absolute;
+    top: -11px;
+    left: 20px;
+    background: var(--bg);
+    padding: 2px 10px;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border: 1px solid var(--border2);
+    border-radius: 99px;
+    color: var(--muted);
+  }
+
+  .layer-client  { background: var(--layer-client); }
+  .layer-gateway { background: var(--layer-gateway); }
+  .layer-main    { background: var(--layer-main); }
+  .layer-domain  { background: var(--layer-domain); }
+  .layer-data    { background: var(--layer-data); }
+  .layer-infra   { background: rgba(245,158,11,0.06); }
+
+  /* ── Row of boxes ── */
+  .row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: stretch;
+    justify-content: center;
+  }
+
+  /* ── Card box ── */
+  .box {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s, transform 0.15s;
+    position: relative;
+    min-width: 110px;
+  }
+  .box:hover { border-color: rgba(255,255,255,0.28); background: var(--surface2); transform: translateY(-2px); }
+  .box:hover .detail-panel { display: flex; }
+
+  .box-icon {
+    font-size: 16px;
+    margin-bottom: 2px;
+    display: block;
+  }
+  .box-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .box-sub {
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  /* color accent strip */
+  .box::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    border-radius: 10px 10px 0 0;
+    background: var(--strip, transparent);
+  }
+  .accent-blue   { --strip: var(--accent); }
+  .accent-purple { --strip: var(--accent2); }
+  .accent-teal   { --strip: var(--teal); }
+  .accent-amber  { --strip: var(--amber); }
+  .accent-coral  { --strip: var(--coral); }
+  .accent-green  { --strip: var(--green); }
+  .accent-pink   { --strip: var(--pink); }
+
+  /* ── Main MCP box (hero) ── */
+  .main-mcp {
+    background: var(--surface2);
+    border: 1px solid rgba(45,212,191,0.35);
+    border-radius: 14px;
+    padding: 20px 24px;
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+  .main-mcp::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--teal), var(--accent), var(--accent2));
+    border-radius: 14px 14px 0 0;
+  }
+  .main-mcp-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 18px;
+    color: var(--teal);
+    margin-bottom: 14px;
+    letter-spacing: -0.3px;
+  }
+  .main-mcp-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+  }
+  .capability {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .capability:hover { border-color: rgba(45,212,191,0.4); background: rgba(45,212,191,0.05); }
+  .cap-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--teal);
+    margin-bottom: 3px;
+  }
+  .cap-desc {
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.45;
+  }
+
+  /* ── Connector arrows between layers ── */
+  .connector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 6px 0;
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    position: relative;
+  }
+  .connector::before, .connector::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+    max-width: 200px;
+  }
+  .connector-arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .arrow-down { color: var(--border2); font-size: 16px; line-height: 1; }
+
+  /* ── Domain server cards ── */
+  .domain-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+  }
+  .domain-card {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .domain-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 2px;
+    background: var(--dcolor, var(--accent2));
+    border-radius: 12px 12px 0 0;
+  }
+  .domain-card:hover { border-color: rgba(255,255,255,0.22); transform: translateY(-2px); }
+  .domain-card:hover .domain-tools { max-height: 200px; opacity: 1; }
+  .domain-name {
+    font-weight: 500;
+    font-size: 12px;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .domain-badge {
+    display: inline-block;
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 99px;
+    background: rgba(255,255,255,0.06);
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .domain-tools {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease, opacity 0.25s;
+  }
+  .tool-item {
+    font-size: 9px;
+    color: var(--muted);
+    padding: 2px 0;
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+    padding-top: 4px;
+  }
+  .tool-item::before { content: '→ '; color: var(--accent2); }
+
+  /* ── Data source row ── */
+  .ds-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+  }
+  .ds-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 4px;
+  }
+  .ds-icon { font-size: 18px; }
+  .ds-name { font-size: 10px; color: var(--text); font-weight: 500; }
+  .ds-type { font-size: 9px; color: var(--muted); }
+
+  /* ── Infra strip ── */
+  .infra-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .infra-pill {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    padding: 6px 14px;
+    font-size: 10px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .infra-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--amber);
+    flex-shrink: 0;
+  }
+  .infra-dot.teal { background: var(--teal); }
+  .infra-dot.coral { background: var(--coral); }
+  .infra-dot.green { background: var(--green); }
+  .infra-dot.purple { background: var(--purple); }
+
+  /* ── Protocol legend ── */
+  .legend {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .legend-line {
+    width: 28px;
+    height: 2px;
+    border-radius: 99px;
+  }
+
+  /* ── Detail tooltip ── */
+  .detail-panel {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    z-index: 50;
+    background: #1e2230;
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 12px 14px;
+    min-width: 220px;
+    max-width: 280px;
+    flex-direction: column;
+    gap: 6px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    pointer-events: none;
+  }
+  .detail-panel h4 { font-size: 11px; color: var(--text); font-weight: 500; margin-bottom: 2px; }
+  .detail-panel p  { font-size: 10px; color: var(--muted); line-height: 1.5; }
+  .detail-tag {
+    display: inline-block;
+    font-size: 9px;
+    background: rgba(108,140,255,0.12);
+    color: var(--accent);
+    border-radius: 4px;
+    padding: 2px 6px;
+    margin: 2px 2px 0 0;
+  }
+
+  /* ── Section title ── */
+  .section-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  /* Divider between main-mcp rows */
+  .divider { height: 1px; background: var(--border); margin: 10px 0; }
+
+  /* pulse animation on main box */
+  @keyframes pulse-border {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(45,212,191,0); }
+    50%       { box-shadow: 0 0 0 4px rgba(45,212,191,0.12); }
+  }
+  .main-mcp { animation: pulse-border 4s ease-in-out infinite; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Domain <em>MCP</em> Server Architecture</h1>
+  <p>Industry Standard · Multi-Domain · Model Context Protocol</p>
+</header>
+
+<div class="arch">
+
+  <!-- ═══════════════════ LAYER 1: CLIENTS ═══════════════════ -->
+  <div class="layer layer-client">
+    <span class="layer-label">01 · Client Layer</span>
+    <p class="section-title">MCP-compatible consumers</p>
+    <div class="row">
+
+      <div class="box accent-blue" style="min-width:130px">
+        <span class="box-icon">🤖</span>
+        <span class="box-title">AI Agent / LLM</span>
+        <span class="box-sub">Claude, GPT-4o, Gemini<br/>MCP tool-use protocol</span>
+        <div class="detail-panel">
+          <h4>AI Agent Client</h4>
+          <p>Any LLM that supports the MCP tool-use protocol. Sends structured tool calls; receives typed responses.</p>
+          <span class="detail-tag">MCP 1.0</span><span class="detail-tag">tool_use</span><span class="detail-tag">streaming</span>
+        </div>
+      </div>
+
+      <div class="box accent-blue" style="min-width:130px">
+        <span class="box-icon">🖥️</span>
+        <span class="box-title">Claude Desktop</span>
+        <span class="box-sub">Anthropic native client<br/>stdio / SSE transport</span>
+        <div class="detail-panel">
+          <h4>Claude Desktop / App</h4>
+          <p>First-party Anthropic client connecting via stdio or SSE. Discovers tools automatically from the main server manifest.</p>
+          <span class="detail-tag">stdio</span><span class="detail-tag">SSE</span><span class="detail-tag">auto-discover</span>
+        </div>
+      </div>
+
+      <div class="box accent-blue" style="min-width:130px">
+        <span class="box-icon">🔌</span>
+        <span class="box-title">Custom App</span>
+        <span class="box-sub">Internal portals<br/>REST → MCP adapter</span>
+        <div class="detail-panel">
+          <h4>Custom Application</h4>
+          <p>Internal investment portals or dashboards using the MCP SDK to call tools. May wrap REST calls into MCP tool invocations.</p>
+          <span class="detail-tag">REST wrapper</span><span class="detail-tag">MCP SDK</span>
+        </div>
+      </div>
+
+      <div class="box accent-blue" style="min-width:130px">
+        <span class="box-icon">📡</span>
+        <span class="box-title">API Client</span>
+        <span class="box-sub">CI/CD · batch pipelines<br/>Anthropic API direct</span>
+        <div class="detail-panel">
+          <h4>Programmatic API Client</h4>
+          <p>Scripts, batch jobs, and pipelines calling Claude via the Anthropic Messages API with MCP server_url set to the main gateway.</p>
+          <span class="detail-tag">Messages API</span><span class="detail-tag">batch</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- connector -->
+  <div class="connector">
+    <div class="connector-arrow"><span class="arrow-down">↕</span><span>mcp over https · sse · stdio</span></div>
+  </div>
+
+  <!-- ═══════════════════ LAYER 2: API GATEWAY ═══════════════════ -->
+  <div class="layer layer-gateway">
+    <span class="layer-label">02 · API Gateway &amp; Security</span>
+    <p class="section-title">Ingress, auth, rate-limit, observability</p>
+    <div class="row">
+
+      <div class="box accent-purple" style="min-width:130px">
+        <span class="box-icon">🛡️</span>
+        <span class="box-title">Auth &amp; RBAC</span>
+        <span class="box-sub">OAuth 2.0 / OIDC<br/>JWT · API keys</span>
+        <div class="detail-panel">
+          <h4>Authentication &amp; Authorization</h4>
+          <p>OAuth 2.0 with PKCE for human clients. Service accounts with short-lived JWTs for agents. RBAC ensures clients only invoke permitted domain tools.</p>
+          <span class="detail-tag">OAuth 2.0</span><span class="detail-tag">RBAC</span><span class="detail-tag">JWT</span>
+        </div>
+      </div>
+
+      <div class="box accent-purple" style="min-width:130px">
+        <span class="box-icon">⚖️</span>
+        <span class="box-title">Rate Limiter</span>
+        <span class="box-sub">Per-client throttle<br/>Token bucket</span>
+        <div class="detail-panel">
+          <h4>Rate Limiting</h4>
+          <p>Token-bucket algorithm per client identity. Separate limits for read vs write tool calls. Burst allowance for interactive sessions.</p>
+          <span class="detail-tag">token bucket</span><span class="detail-tag">Redis</span>
+        </div>
+      </div>
+
+      <div class="box accent-purple" style="min-width:130px">
+        <span class="box-icon">🔒</span>
+        <span class="box-title">TLS Termination</span>
+        <span class="box-sub">mTLS inter-service<br/>Cert rotation</span>
+        <div class="detail-panel">
+          <h4>TLS &amp; mTLS</h4>
+          <p>Inbound TLS 1.3 terminated at the gateway. Internal mesh uses mTLS for every domain-to-domain call. Certificates rotated via cert-manager.</p>
+          <span class="detail-tag">TLS 1.3</span><span class="detail-tag">mTLS</span><span class="detail-tag">cert-manager</span>
+        </div>
+      </div>
+
+      <div class="box accent-purple" style="min-width:130px">
+        <span class="box-icon">📊</span>
+        <span class="box-title">Observability</span>
+        <span class="box-sub">OpenTelemetry traces<br/>Metrics · Logs</span>
+        <div class="detail-panel">
+          <h4>Observability</h4>
+          <p>All tool calls emitted as OpenTelemetry spans. Prometheus metrics (latency p50/p99, error rate). Structured JSON logs shipped to centralised SIEM.</p>
+          <span class="detail-tag">OTel</span><span class="detail-tag">Prometheus</span><span class="detail-tag">Grafana</span>
+        </div>
+      </div>
+
+      <div class="box accent-purple" style="min-width:130px">
+        <span class="box-icon">📝</span>
+        <span class="box-title">Audit Log</span>
+        <span class="box-sub">Immutable call log<br/>Compliance</span>
+        <div class="detail-panel">
+          <h4>Audit Logging</h4>
+          <p>Every tool invocation logged immutably: caller, tool name, arguments hash, response code, latency. Retained 7 years for financial compliance (MiFID II / SEC).</p>
+          <span class="detail-tag">MiFID II</span><span class="detail-tag">SEC 17a-4</span><span class="detail-tag">WORM</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- connector -->
+  <div class="connector">
+    <div class="connector-arrow"><span class="arrow-down">↕</span><span>internal rpc · grpc</span></div>
+  </div>
+
+  <!-- ═══════════════════ LAYER 3: MAIN MCP SERVER ═══════════════════ -->
+  <div class="layer layer-main">
+    <span class="layer-label">03 · Main MCP Server</span>
+    <div class="main-mcp">
+      <div class="main-mcp-title">Main MCP Orchestrator</div>
+      <div class="main-mcp-grid">
+
+        <div class="capability">
+          <div class="cap-label">🗂️ Tool Registry</div>
+          <div class="cap-desc">Discovers and indexes all tools exposed by registered domain MCPs. Serves unified <code>tools/list</code> manifest to clients. Hot-reload on domain registration.</div>
+        </div>
+
+        <div class="capability">
+          <div class="cap-label">🔀 Intelligent Router</div>
+          <div class="cap-desc">Routes each <code>tools/call</code> to the correct domain server by tool namespace prefix (e.g. <code>perf.*</code>, <code>aum.*</code>). Supports fan-out for cross-domain queries.</div>
+        </div>
+
+        <div class="capability">
+          <div class="cap-label">📦 Response Aggregator</div>
+          <div class="cap-desc">Merges parallel responses from multiple domains into a single structured reply. Handles partial failures gracefully with fallback stubs.</div>
+        </div>
+
+        <div class="capability">
+          <div class="cap-label">💾 Result Cache</div>
+          <div class="cap-desc">TTL-based caching of read-only tool results (Redis). Per-tool TTL config. Cache bypass header for real-time requests. Cache key = tool + args hash.</div>
+        </div>
+
+        <div class="capability">
+          <div class="cap-label">🩺 Health Monitor</div>
+          <div class="cap-desc">Polls each domain MCP <code>/healthz</code> every 10 s. Circuit-breaker pattern: open after 3 failures, half-open probe at 30 s. Degrades gracefully.</div>
+        </div>
+
+        <div class="capability">
+          <div class="cap-label">🔐 Secret Manager</div>
+          <div class="cap-desc">Holds upstream credentials for all domain servers. Rotates secrets via Vault or AWS Secrets Manager. Domain servers never hold long-lived credentials.</div>
+        </div>
+
+        <div class="capability">
+          <div class="cap-label">📋 Schema Validator</div>
+          <div class="cap-desc">Validates all inbound tool arguments against JSON Schema before dispatch. Rejects malformed calls early; protects domain servers from bad input.</div>
+        </div>
+
+        <div class="capability">
+          <div class="cap-label">🔌 Domain Registry</div>
+          <div class="cap-desc">Service-discovery sidecar. Domain MCPs self-register on startup with name, endpoint, capabilities, and SLA tier. Deregistered on graceful shutdown.</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- connector -->
+  <div class="connector">
+    <div class="connector-arrow"><span class="arrow-down">↕</span><span>domain mcp protocol · grpc / sse</span></div>
+  </div>
+
+  <!-- ═══════════════════ LAYER 4: DOMAIN MCP SERVERS ═══════════════════ -->
+  <div class="layer layer-domain">
+    <span class="layer-label">04 · Domain MCP Servers</span>
+    <p class="section-title">Each domain owns its tools, schema, and data access · hover to expand tools</p>
+    <div class="domain-grid">
+
+      <div class="domain-card" style="--dcolor: var(--accent)">
+        <div class="domain-name">📈 Performance MCP</div>
+        <span class="domain-badge">perf.*</span>
+        <div class="domain-tools">
+          <div class="tool-item">perf.get_returns(fund, period)</div>
+          <div class="tool-item">perf.benchmark_compare(fund, idx)</div>
+          <div class="tool-item">perf.attribution_analysis(fund)</div>
+          <div class="tool-item">perf.drawdown_history(fund)</div>
+          <div class="tool-item">perf.sharpe_ratio(fund, rf)</div>
+        </div>
+      </div>
+
+      <div class="domain-card" style="--dcolor: var(--teal)">
+        <div class="domain-name">💰 AUM MCP</div>
+        <span class="domain-badge">aum.*</span>
+        <div class="domain-tools">
+          <div class="tool-item">aum.get_aum_snapshot(date)</div>
+          <div class="tool-item">aum.aum_trend(fund, range)</div>
+          <div class="tool-item">aum.flow_analysis(period)</div>
+          <div class="tool-item">aum.redemption_forecast()</div>
+          <div class="tool-item">aum.investor_breakdown(fund)</div>
+        </div>
+      </div>
+
+      <div class="domain-card" style="--dcolor: var(--accent2)">
+        <div class="domain-name">💳 Transaction MCP</div>
+        <span class="domain-badge">txn.*</span>
+        <div class="domain-tools">
+          <div class="tool-item">txn.list_trades(fund, date)</div>
+          <div class="tool-item">txn.trade_detail(trade_id)</div>
+          <div class="tool-item">txn.settlement_status(batch)</div>
+          <div class="tool-item">txn.failed_trades(date_range)</div>
+          <div class="tool-item">txn.fx_conversion_log()</div>
+        </div>
+      </div>
+
+      <div class="domain-card" style="--dcolor: var(--coral)">
+        <div class="domain-name">⚠️ Risk MCP</div>
+        <span class="domain-badge">risk.*</span>
+        <div class="domain-tools">
+          <div class="tool-item">risk.var_report(fund, conf)</div>
+          <div class="tool-item">risk.stress_test(scenario)</div>
+          <div class="tool-item">risk.concentration_check(fund)</div>
+          <div class="tool-item">risk.limit_breach_alerts()</div>
+          <div class="tool-item">risk.counterparty_exposure()</div>
+        </div>
+      </div>
+
+      <div class="domain-card" style="--dcolor: var(--amber)">
+        <div class="domain-name">📂 Portfolio MCP</div>
+        <span class="domain-badge">port.*</span>
+        <div class="domain-tools">
+          <div class="tool-item">port.holdings(fund, date)</div>
+          <div class="tool-item">port.sector_allocation(fund)</div>
+          <div class="tool-item">port.rebalance_diff(fund)</div>
+          <div class="tool-item">port.model_vs_actual(fund)</div>
+          <div class="tool-item">port.esg_score(fund)</div>
+        </div>
+      </div>
+
+      <div class="domain-card" style="--dcolor: var(--green)">
+        <div class="domain-name">✅ Compliance MCP</div>
+        <span class="domain-badge">comp.*</span>
+        <div class="domain-tools">
+          <div class="tool-item">comp.reg_check(fund, rule)</div>
+          <div class="tool-item">comp.breach_history(period)</div>
+          <div class="tool-item">comp.kyc_status(investor_id)</div>
+          <div class="tool-item">comp.aml_flag_check(txn_id)</div>
+          <div class="tool-item">comp.filing_calendar()</div>
+        </div>
+      </div>
+
+      <div class="domain-card" style="--dcolor: var(--pink)">
+        <div class="domain-name">📊 Reporting MCP</div>
+        <span class="domain-badge">rpt.*</span>
+        <div class="domain-tools">
+          <div class="tool-item">rpt.generate_factsheet(fund)</div>
+          <div class="tool-item">rpt.investor_statement(id)</div>
+          <div class="tool-item">rpt.board_pack(quarter)</div>
+          <div class="tool-item">rpt.regulatory_filing(type)</div>
+          <div class="tool-item">rpt.custom_report(template)</div>
+        </div>
+      </div>
+
+      <div class="domain-card" style="--dcolor: var(--muted); border-style: dashed;">
+        <div class="domain-name" style="color: var(--muted)">＋ New Domain</div>
+        <span class="domain-badge">custom.*</span>
+        <div class="domain-tools">
+          <div class="tool-item">Implement MCP spec</div>
+          <div class="tool-item">Register with main server</div>
+          <div class="tool-item">Expose /healthz endpoint</div>
+          <div class="tool-item">Define JSON Schema tools</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- connector -->
+  <div class="connector">
+    <div class="connector-arrow"><span class="arrow-down">↕</span><span>sql · rest · grpc · graphql · kafka</span></div>
+  </div>
+
+  <!-- ═══════════════════ LAYER 5: DATA SOURCES ═══════════════════ -->
+  <div class="layer layer-data">
+    <span class="layer-label">05 · Data &amp; Persistence Layer</span>
+    <p class="section-title">Each domain server owns its data source — no cross-domain DB access</p>
+    <div class="ds-grid">
+      <div class="ds-card">
+        <span class="ds-icon">🗄️</span>
+        <div class="ds-name">Performance DB</div>
+        <div class="ds-type">TimescaleDB / ClickHouse<br/>NAV · returns · benchmarks</div>
+      </div>
+      <div class="ds-card">
+        <span class="ds-icon">🗄️</span>
+        <div class="ds-name">Fund Master DB</div>
+        <div class="ds-type">PostgreSQL<br/>AUM · flows · share classes</div>
+      </div>
+      <div class="ds-card">
+        <span class="ds-icon">🗄️</span>
+        <div class="ds-name">Trade Ledger</div>
+        <div class="ds-type">Oracle / Snowflake<br/>Orders · executions · FX</div>
+      </div>
+      <div class="ds-card">
+        <span class="ds-icon">⚙️</span>
+        <div class="ds-name">Risk Engine</div>
+        <div class="ds-type">Axioma / proprietary<br/>VaR · stress · limits</div>
+      </div>
+      <div class="ds-card">
+        <span class="ds-icon">🗄️</span>
+        <div class="ds-name">OMS / PMS</div>
+        <div class="ds-type">Charles River / Aladdin<br/>Holdings · model port.</div>
+      </div>
+      <div class="ds-card">
+        <span class="ds-icon">🗄️</span>
+        <div class="ds-name">Compliance DB</div>
+        <div class="ds-type">PostgreSQL + Kafka<br/>Rules · breaches · KYC</div>
+      </div>
+      <div class="ds-card">
+        <span class="ds-icon">☁️</span>
+        <div class="ds-name">Report Store</div>
+        <div class="ds-type">S3 / Azure Blob<br/>PDFs · templates</div>
+      </div>
+      <div class="ds-card">
+        <span class="ds-icon">📨</span>
+        <div class="ds-name">Event Bus</div>
+        <div class="ds-type">Kafka / Kinesis<br/>Cross-domain events</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- connector -->
+  <div class="connector">
+    <div class="connector-arrow"><span class="arrow-down">↕</span><span>shared infra services</span></div>
+  </div>
+
+  <!-- ═══════════════════ LAYER 6: PLATFORM INFRA ═══════════════════ -->
+  <div class="layer layer-infra">
+    <span class="layer-label">06 · Platform &amp; Infrastructure</span>
+    <p class="section-title">Shared services across all layers</p>
+    <div class="infra-row">
+      <div class="infra-pill"><span class="infra-dot teal"></span>Kubernetes (K8s) — container orchestration</div>
+      <div class="infra-pill"><span class="infra-dot"></span>Vault — secrets &amp; cert management</div>
+      <div class="infra-pill"><span class="infra-dot green"></span>Redis — distributed cache &amp; rate-limit state</div>
+      <div class="infra-pill"><span class="infra-dot coral"></span>Grafana · Prometheus · Loki — observability stack</div>
+      <div class="infra-pill"><span class="infra-dot purple"></span>Istio service mesh — mTLS, traffic policy</div>
+      <div class="infra-pill"><span class="infra-dot teal"></span>ArgoCD — GitOps deployment pipeline</div>
+      <div class="infra-pill"><span class="infra-dot"></span>AWS / Azure — cloud provider</div>
+      <div class="infra-pill"><span class="infra-dot coral"></span>PagerDuty — on-call alerting</div>
+      <div class="infra-pill"><span class="infra-dot green"></span>SIEM (Splunk / Sentinel) — security monitoring</div>
+    </div>
+  </div>
+
+</div><!-- end .arch -->
+
+<!-- Protocol legend -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-line" style="background:var(--accent)"></div>MCP (SSE / stdio)</div>
+  <div class="legend-item"><div class="legend-line" style="background:var(--accent2)"></div>gRPC (internal)</div>
+  <div class="legend-item"><div class="legend-line" style="background:var(--teal)"></div>REST / HTTP</div>
+  <div class="legend-item"><div class="legend-line" style="background:var(--amber)"></div>Kafka events</div>
+  <div class="legend-item"><div class="legend-line" style="background:var(--coral); width:28px; height:2px; background: repeating-linear-gradient(90deg, var(--coral) 0, var(--coral) 4px, transparent 4px, transparent 8px);"></div>mTLS (service mesh)</div>
+</div>
+
+</body>
+</html>
