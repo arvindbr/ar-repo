@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brinston Attribution — Full Dimensional Model</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg:    #0d0f12; --bg2: #141720; --bg3: #1c2030;
+    --line:  #2a2f4a; --line2: #363c60;
+    --text:  #e8eaf2; --muted: #7a80a0; --dim-c: #4a5070;
+
+    --fact:      #9b87f5; --fact-bg:  #1f1a3a; --fact-line: #3d3570; --fact-head: #2a2460;
+    --teal:      #2dd4a8; --teal-bg:  #0f2520; --teal-line: #1a4035; --teal-head: #163028;
+    --amber:     #f0b429; --amber-bg: #261d08; --amber-line:#4a3a10; --amber-head:#201808;
+
+    --pk: #f0b429; --pk-bg: #261d08; --pk-bd: #854F0B;
+    --fk: #58a6e6; --fk-bg: #0e1e30; --fk-bd: #1a3a5a;
+    --nn: #f07070; --nn-bg: #2a1010; --nn-bd: #4a2020;
+    --scd:#5cd68a; --scd-bg:#0e2018; --scd-bd:#1a4028;
+  }
+
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;line-height:1.5;min-height:100vh}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:40px 40px;opacity:.28;pointer-events:none;z-index:0}
+
+  .wrap{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:40px 28px 100px}
+
+  .header{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:40px;padding-bottom:28px;border-bottom:1px solid var(--line2)}
+  .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--fact);margin-bottom:10px}
+  h1{font-size:26px;font-weight:600;letter-spacing:-.02em;margin-bottom:5px}
+  .hsub{font-size:13px;color:var(--muted)}
+  .pills{display:flex;flex-wrap:wrap;gap:7px;margin-top:16px}
+  .pill{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:3px 9px;border-radius:2px;border:1px solid;letter-spacing:.04em}
+  .pf{background:var(--fact-bg);border-color:var(--fact-line);color:var(--fact)}
+  .pt{background:var(--teal-bg);border-color:var(--teal-line);color:var(--teal)}
+  .pa{background:var(--amber-bg);border-color:var(--amber-line);color:var(--amber)}
+  .hstamp{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim-c);line-height:2;text-align:right}
+
+  .sec{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim-c);margin:0 0 14px;display:flex;align-items:center;gap:12px}
+  .sec::after{content:'';flex:1;height:1px;background:var(--line)}
+
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:20px}
+  .leg{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  .lsq{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+
+  .tbl{border-radius:6px;overflow:hidden}
+  .th{padding:9px 13px 7px}
+  .tn{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;margin-bottom:2px}
+  .td{font-size:10px;color:var(--muted)}
+  .row{display:flex;justify-content:space-between;align-items:flex-start;gap:6px;padding:5px 13px;background:var(--bg2);transition:background .1s}
+  .row+.row{border-top:1px solid var(--line)}
+  .row:hover{background:var(--bg3)}
+  .cl{flex:1;min-width:0}
+  .cn{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ct{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim-c);white-space:nowrap;padding-top:1px}
+  .bs{display:flex;gap:3px;margin-top:3px;flex-wrap:wrap}
+  .b{font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;padding:1px 4px;border-radius:2px}
+  .bpk{background:var(--pk-bg);color:var(--pk);border:1px solid var(--pk-bd)}
+  .bfk{background:var(--fk-bg);color:var(--fk);border:1px solid var(--fk-bd)}
+  .bnn{background:var(--nn-bg);color:var(--nn);border:1px solid var(--nn-bd)}
+  .bsc{background:var(--scd-bg);color:var(--scd);border:1px solid var(--scd-bd)}
+
+  .fact-tbl{border:1px solid var(--fact-line)}
+  .fact-tbl .th{background:var(--fact-head);border-top:2px solid var(--fact)}
+  .fact-tbl .tn{color:var(--fact)}
+
+  .dim-teal{border:1px solid var(--teal-line)}
+  .dim-teal .th{background:var(--teal-head);border-top:2px solid var(--teal)}
+  .dim-teal .tn{color:var(--teal)}
+
+  .dim-amber{border:1px solid var(--amber-line)}
+  .dim-amber .th{background:var(--amber-head);border-top:2px solid var(--amber)}
+  .dim-amber .tn{color:var(--amber)}
+
+  .g6{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:0}
+  .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:28px}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .conn6{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+  .cc{display:flex;flex-direction:column;align-items:center;height:28px}
+  .cl2{width:1px;flex:1;background:var(--line2)}
+  .cd{width:5px;height:5px;border-radius:50%;background:var(--line2);flex-shrink:0}
+
+  hr{border:none;border-top:1px solid var(--line);margin:32px 0}
+
+  .note{background:var(--bg2);border:1px solid var(--line);border-radius:5px;padding:12px 16px;font-size:12px;color:var(--muted);line-height:1.7}
+  .note h4{font-size:12px;font-weight:500;color:var(--text);margin-bottom:8px}
+  .note code{font-family:'IBM Plex Mono',monospace;font-size:10px;background:var(--bg3);border:1px solid var(--line2);border-radius:2px;padding:1px 5px;color:var(--fact)}
+
+  .uq-block{background:var(--bg2);border:1px solid var(--line);border-radius:5px;padding:14px 18px}
+  .uq-row{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);line-height:2.1}
+
+  .map-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:40px}
+  .map-table th{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dim-c);padding:8px 14px;background:var(--bg3);border-bottom:1px solid var(--line2);text-align:left}
+  .map-table td{padding:7px 14px;border-bottom:1px solid var(--line);color:var(--muted);vertical-align:top}
+  .map-table tr:hover td{background:var(--bg2)}
+  .map-table td:first-child{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text)}
+  .map-table td:nth-child(2){font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--teal)}
+
+  .footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--line);display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim-c)}
+
+  @media(max-width:1100px){
+    .g6{grid-template-columns:1fr 1fr 1fr}
+    .conn6{grid-template-columns:1fr 1fr 1fr}
+    .g3,.g2{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div>
+      <div class="eyebrow">Dimensional Model · Full Schema v2.0</div>
+      <h1>Brinston Attribution — Full Dimensional Model</h1>
+      <div class="hsub">6 dimensions · 3 fact tables · cross-fact FK chain · hierarchy bridge</div>
+      <div class="pills">
+        <span class="pill pf">fact_attribution_account</span>
+        <span class="pill pf">fact_attribution_breakdown_level</span>
+        <span class="pill pf">fact_attribution_security</span>
+        <span class="pill pt">dim_account · dim_date · dim_security</span>
+        <span class="pill pa">dim_periodicity · dim_attribution_breakdown · dim_breakdown_node</span>
+      </div>
+    </div>
+    <div class="hstamp">
+      <div>brinston_attribution</div>
+      <div>dimensional v2.0</div>
+      <div style="margin-top:6px;color:var(--fact)">6 dims · 3 facts</div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="leg"><div class="lsq" style="background:var(--fact)"></div>Fact table</div>
+    <div class="leg"><div class="lsq" style="background:var(--teal)"></div>Conformed dimension</div>
+    <div class="leg"><div class="lsq" style="background:var(--amber)"></div>Domain dimension</div>
+    <span class="b bpk">PK</span>
+    <span class="b bfk">FK</span>
+    <span class="b bsc">SCD2</span>
+  </div>
+
+  <!-- 6 DIMENSIONS -->
+  <div class="sec">Dimensions — 3 conformed (teal) · 3 domain (amber)</div>
+  <div class="g6">
+
+    <div class="tbl dim-teal">
+      <div class="th"><div class="tn">dim_account</div><div class="td">Fund / portfolio · SCD2</div></div>
+      <div class="row"><div class="cl"><div class="cn">account_sk</div><div class="bs"><span class="b bpk">PK</span><span class="b bsc">SCD2</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cn">account_id</div><div class="ct">VARCHAR(20)</div></div>
+      <div class="row"><div class="cn">account_name</div><div class="ct">VARCHAR(200)</div></div>
+      <div class="row"><div class="cn">fund_type</div><div class="ct">VARCHAR(50)</div></div>
+      <div class="row"><div class="cn">base_currency</div><div class="ct">CHAR(3)</div></div>
+      <div class="row"><div class="cn">benchmark_id</div><div class="ct">VARCHAR(50)</div></div>
+      <div class="row"><div class="cn">inception_date</div><div class="ct">DATE</div></div>
+      <div class="row"><div class="cn">row_effective_date</div><div class="ct">DATE</div></div>
+      <div class="row"><div class="cn">row_expiry_date</div><div class="ct">DATE</div></div>
+      <div class="row"><div class="cn">is_current</div><div class="ct">BOOL</div></div>
+    </div>
+
+    <div class="tbl dim-teal">
+      <div class="th"><div class="tn">dim_date</div><div class="td">Calendar / fiscal spine</div></div>
+      <div class="row"><div class="cl"><div class="cn">date_sk</div><div class="bs"><span class="b bpk">PK</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cn">calendar_date</div><div class="ct">DATE</div></div>
+      <div class="row"><div class="cn">year</div><div class="ct">INT</div></div>
+      <div class="row"><div class="cn">quarter</div><div class="ct">INT</div></div>
+      <div class="row"><div class="cn">month</div><div class="ct">INT</div></div>
+      <div class="row"><div class="cn">day_of_month</div><div class="ct">INT</div></div>
+      <div class="row"><div class="cn">fiscal_year</div><div class="ct">INT</div></div>
+      <div class="row"><div class="cn">fiscal_period</div><div class="ct">INT</div></div>
+      <div class="row"><div class="cn">is_month_end</div><div class="ct">BOOL</div></div>
+      <div class="row"><div class="cn">is_quarter_end</div><div class="ct">BOOL</div></div>
+      <div class="row"><div class="cn">is_year_end</div><div class="ct">BOOL</div></div>
+    </div>
+
+    <div class="tbl dim-teal">
+      <div class="th"><div class="tn">dim_security</div><div class="td">Instrument master · SCD2</div></div>
+      <div class="row"><div class="cl"><div class="cn">security_sk</div><div class="bs"><span class="b bpk">PK</span><span class="b bsc">SCD2</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cn">security_id</div><div class="ct">VARCHAR(50)</div></div>
+      <div class="row"><div class="cn">isin</div><div class="ct">CHAR(12)</div></div>
+      <div class="row"><div class="cn">sedol</div><div class="ct">CHAR(7)</div></div>
+      <div class="row"><div class="cn">security_name</div><div class="ct">VARCHAR(300)</div></div>
+      <div class="row"><div class="cn">asset_class</div><div class="ct">VARCHAR(50)</div></div>
+      <div class="row"><div class="cn">security_type</div><div class="ct">VARCHAR(50)</div></div>
+      <div class="row"><div class="cn">currency</div><div class="ct">CHAR(3)</div></div>
+      <div class="row"><div class="cn">country_of_risk</div><div class="ct">CHAR(2)</div></div>
+      <div class="row"><div class="cn">row_effective_date</div><div class="ct">DATE</div></div>
+      <div class="row"><div class="cn">is_current</div><div class="ct">BOOL</div></div>
+    </div>
+
+    <div class="tbl dim-amber">
+      <div class="th"><div class="tn">dim_periodicity</div><div class="td">DTD / MTD / QTD / YTD</div></div>
+      <div class="row"><div class="cl"><div class="cn">periodicity_sk</div><div class="bs"><span class="b bpk">PK</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cn">periodicity_code</div><div class="ct">VARCHAR(5)</div></div>
+      <div class="row"><div class="cn">periodicity_name</div><div class="ct">VARCHAR(50)</div></div>
+      <div class="row"><div class="cn">period_type</div><div class="ct">VARCHAR(20)</div></div>
+      <div class="row"><div class="cn">accumulation_days</div><div class="ct">SMALLINT</div></div>
+      <div class="row"><div class="cn">sort_order</div><div class="ct">TINYINT</div></div>
+      <div class="row"><div class="cn">description</div><div class="ct">VARCHAR(200)</div></div>
+    </div>
+
+    <div class="tbl dim-amber">
+      <div class="th"><div class="tn">dim_attribution_breakdown</div><div class="td">sector / core / global types</div></div>
+      <div class="row"><div class="cl"><div class="cn">breakdown_sk</div><div class="bs"><span class="b bpk">PK</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cn">breakdown_code</div><div class="ct">VARCHAR(20)</div></div>
+      <div class="row"><div class="cn">breakdown_name</div><div class="ct">VARCHAR(100)</div></div>
+      <div class="row"><div class="cn">attribution_purpose_sk</div><div class="ct">INT</div></div>
+      <div class="row"><div class="cn">max_depth</div><div class="ct">TINYINT</div></div>
+      <div class="row"><div class="cn">is_active</div><div class="ct">BOOL</div></div>
+      <div class="row"><div class="cn">description</div><div class="ct">VARCHAR(300)</div></div>
+    </div>
+
+    <div class="tbl dim-amber">
+      <div class="th"><div class="tn">dim_breakdown_node</div><div class="td">Hierarchy node · lvl 1–5</div></div>
+      <div class="row"><div class="cl"><div class="cn">breakdown_node_sk</div><div class="bs"><span class="b bpk">PK</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cl"><div class="cn">breakdown_sk</div><div class="bs"><span class="b bfk">FK</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cl"><div class="cn">parent_node_sk</div><div class="bs"><span class="b bfk">FK self</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cn">level_number</div><div class="ct">TINYINT (1–5)</div></div>
+      <div class="row"><div class="cn">level_code</div><div class="ct">VARCHAR(100)</div></div>
+      <div class="row"><div class="cn">level_name</div><div class="ct">VARCHAR(200)</div></div>
+      <div class="row"><div class="cn">is_leaf</div><div class="ct">BOOL</div></div>
+      <div class="row"><div class="cn">lvl1_code</div><div class="ct">VARCHAR(100)</div></div>
+      <div class="row"><div class="cn">lvl2_code</div><div class="ct">VARCHAR(100)</div></div>
+      <div class="row"><div class="cn">lvl3_code</div><div class="ct">VARCHAR(100)</div></div>
+      <div class="row"><div class="cn">lvl4_code</div><div class="ct">VARCHAR(100)</div></div>
+      <div class="row"><div class="cn">lvl5_code</div><div class="ct">VARCHAR(100)</div></div>
+    </div>
+
+  </div>
+
+  <!-- Connectors -->
+  <div class="conn6" style="margin:0">
+    <div class="cc"><div class="cd"></div><div class="cl2"></div><div class="cd"></div></div>
+    <div class="cc"><div class="cd"></div><div class="cl2"></div><div class="cd"></div></div>
+    <div class="cc"><div class="cd"></div><div class="cl2"></div><div class="cd"></div></div>
+    <div class="cc"><div class="cd"></div><div class="cl2"></div><div class="cd"></div></div>
+    <div class="cc"><div class="cd"></div><div class="cl2"></div><div class="cd"></div></div>
+    <div class="cc"><div class="cd"></div><div class="cl2"></div><div class="cd"></div></div>
+  </div>
+
+  <!-- 3 FACT TABLES -->
+  <div class="sec" style="margin-top:0">Fact tables</div>
+  <div class="g3">
+
+    <div class="tbl fact-tbl">
+      <div class="th"><div class="tn">fact_attribution_account</div><div class="td">Fund-level · account × purpose × periodicity × breakdown type × date</div></div>
+      <div class="row"><div class="cl"><div class="cn">attribution_account_sk</div><div class="bs"><span class="b bpk">PK</span></div></div><div class="ct">BIGINT</div></div>
+      <div class="row"><div class="cl"><div class="cn">account_sk</div><div class="bs"><span class="b bfk">FK</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cl"><div class="cn">date_sk</div><div class="bs"><span class="b bfk">FK</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cl"><div class="cn">purpose_sk</div><div class="bs"><span class="b bfk">FK</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cl"><div class="cn">periodicity_sk</div><div class="bs"><span class="b bfk">FK</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cl"><div class="cn">breakdown_sk</div><div class="bs"><span class="b bfk">FK</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cn">total_return</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">allocation_effect</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">selection_effect</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">interaction_effect</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">currency_effect</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">benchmark_return</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">active_return</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">load_timestamp</div><div class="ct">TIMESTAMP</div></div>
+    </div>
+
+    <div class="tbl fact-tbl">
+      <div class="th"><div class="tn">fact_attribution_breakdown_level</div><div class="td">Node-level · account × purpose × periodicity × breakdown node × date</div></div>
+      <div class="row"><div class="cl"><div class="cn">attribution_breakdown_sk</div><div class="bs"><span class="b bpk">PK</span></div></div><div class="ct">BIGINT</div></div>
+      <div class="row"><div class="cl"><div class="cn">account_sk</div><div class="bs"><span class="b bfk">FK</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cl"><div class="cn">date_sk</div><div class="bs"><span class="b bfk">FK</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cl"><div class="cn">purpose_sk</div><div class="bs"><span class="b bfk">FK</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cl"><div class="cn">periodicity_sk</div><div class="bs"><span class="b bfk">FK</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cl"><div class="cn">breakdown_sk</div><div class="bs"><span class="b bfk">FK</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cl"><div class="cn">breakdown_node_sk</div><div class="bs"><span class="b bfk">FK</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cl"><div class="cn">attribution_account_sk</div><div class="bs"><span class="b bfk" style="color:#EF9F27;border-color:#BA7517;background:#261d08">FK ↑</span></div></div><div class="ct">BIGINT</div></div>
+      <div class="row"><div class="cn">level_number</div><div class="ct">TINYINT</div></div>
+      <div class="row"><div class="cn">portfolio_weight</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">benchmark_weight</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">total_return</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">allocation_effect</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">selection_effect</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">interaction_effect</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">currency_effect</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">active_return</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">load_timestamp</div><div class="ct">TIMESTAMP</div></div>
+    </div>
+
+    <div class="tbl fact-tbl">
+      <div class="th"><div class="tn">fact_attribution_security</div><div class="td">Security-grain · + security × breakdown node</div></div>
+      <div class="row"><div class="cl"><div class="cn">attribution_security_sk</div><div class="bs"><span class="b bpk">PK</span></div></div><div class="ct">BIGINT</div></div>
+      <div class="row"><div class="cl"><div class="cn">account_sk</div><div class="bs"><span class="b bfk">FK</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cl"><div class="cn">date_sk</div><div class="bs"><span class="b bfk">FK</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cl"><div class="cn">security_sk</div><div class="bs"><span class="b bfk">FK</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cl"><div class="cn">purpose_sk</div><div class="bs"><span class="b bfk">FK</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cl"><div class="cn">periodicity_sk</div><div class="bs"><span class="b bfk">FK</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cl"><div class="cn">breakdown_sk</div><div class="bs"><span class="b bfk">FK</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cl"><div class="cn">breakdown_node_sk</div><div class="bs"><span class="b bfk">FK</span></div></div><div class="ct">INT</div></div>
+      <div class="row"><div class="cl"><div class="cn">attribution_breakdown_sk</div><div class="bs"><span class="b bfk" style="color:#EF9F27;border-color:#BA7517;background:#261d08">FK ↑</span></div></div><div class="ct">BIGINT</div></div>
+      <div class="row"><div class="cn">portfolio_weight</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">benchmark_weight</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">portfolio_return</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">benchmark_return</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">total_return</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">allocation_effect</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">selection_effect</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">interaction_effect</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">currency_effect</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">active_return</div><div class="ct">DECIMAL(18,8)</div></div>
+      <div class="row"><div class="cn">load_timestamp</div><div class="ct">TIMESTAMP</div></div>
+    </div>
+
+  </div>
+
+  <hr>
+
+  <!-- Design notes -->
+  <div class="sec">Design notes</div>
+  <div class="g2" style="margin-bottom:28px">
+    <div class="note">
+      <h4>dim_periodicity — promoted from degenerate</h4>
+      <p>Previously <code>periodicity_code</code> was a degenerate dimension on every fact. Promoting it to <code>dim_periodicity</code> adds <code>periodicity_name</code> (e.g. "Day-to-date"), <code>period_type</code>, <code>accumulation_days</code>, and <code>sort_order</code> — useful for display labels, sorting in reports, and filtering by period class without hardcoding codes in SQL.</p>
+    </div>
+    <div class="note">
+      <h4>dim_attribution_breakdown vs dim_breakdown_node</h4>
+      <p><code>dim_attribution_breakdown</code> is the <em>type</em> dimension (sector, core, global) — 3 rows, stable, no hierarchy. <code>dim_breakdown_node</code> is the <em>hierarchy member</em> dimension — one row per node within a breakdown (investment_grade → emerging_markets → asia → india). The <code>parent_node_sk</code> self-reference builds the tree; use <code>bridge_breakdown_path</code> at query time for efficient rollups at any level.</p>
+    </div>
+    <div class="note">
+      <h4>FK ↑ — cross-fact foreign keys</h4>
+      <p><code>fact_attribution_breakdown_level.attribution_account_sk</code> → <code>fact_attribution_account</code> links each breakdown row to its parent fund row, enabling drill-through without re-joining all dimensions. Similarly <code>fact_attribution_security.attribution_breakdown_sk</code> → <code>fact_attribution_breakdown_level</code> chains the three grains into a navigable hierarchy.</p>
+    </div>
+    <div class="note">
+      <h4>dim_security scoped to security fact only</h4>
+      <p><code>dim_security</code> is a FK only on <code>fact_attribution_security</code>. Account-level and breakdown-level facts don't reference it — individual securities are not a meaningful concept at those coarser grains. <code>dim_account</code>, <code>dim_date</code>, <code>dim_periodicity</code>, <code>dim_attribution_breakdown</code>, and <code>dim_breakdown_node</code> are conformed across all three facts.</p>
+    </div>
+  </div>
+
+  <!-- Unique constraints -->
+  <div class="sec">Unique constraints</div>
+  <div class="uq-block" style="margin-bottom:28px">
+    <div class="uq-row"><span style="color:var(--fact)">fact_attribution_account</span>:
+      (account_sk, date_sk, purpose_sk, periodicity_sk, breakdown_sk)</div>
+    <div class="uq-row"><span style="color:var(--fact)">fact_attribution_breakdown_level</span>:
+      (account_sk, date_sk, purpose_sk, periodicity_sk, breakdown_sk, breakdown_node_sk)</div>
+    <div class="uq-row"><span style="color:var(--fact)">fact_attribution_security</span>:
+      (account_sk, date_sk, purpose_sk, periodicity_sk, breakdown_sk, breakdown_node_sk, security_sk)</div>
+    <div class="uq-row" style="margin-top:8px"><span style="color:var(--amber)">dim_periodicity</span>: (periodicity_code)</div>
+    <div class="uq-row"><span style="color:var(--amber)">dim_attribution_breakdown</span>: (breakdown_code)</div>
+    <div class="uq-row"><span style="color:var(--amber)">dim_breakdown_node</span>: (breakdown_sk, level_number, level_code)</div>
+  </div>
+
+  <!-- Source mapping -->
+  <div class="sec">Source-to-target mapping — new dimensions</div>
+  <table class="map-table">
+    <thead>
+      <tr><th>Source column</th><th>Target table</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>attribution_account.periodicity (DTD/MTD/QTD/YTD)</td><td>dim_periodicity</td><td>4 rows loaded once; periodicity_code is the natural key; sort_order added for report ordering</td></tr>
+      <tr><td>attribution_account.breakdown_type (sector/core/global)</td><td>dim_attribution_breakdown</td><td>3 rows loaded once; max_depth derived from source data inspection</td></tr>
+      <tr><td>attribution_breakdown_level.level_code + level_number</td><td>dim_breakdown_node</td><td>One row per unique (breakdown_sk, level_number, level_code); parent_node_sk resolved from same-breakdown level_number − 1 match</td></tr>
+      <tr><td>attribution_breakdown_level.parent_breakdown_level_id (self-ref)</td><td>bridge_breakdown_path</td><td>ETL recursive CTE expands ancestor–descendant pairs; depth_distance = 0 for self-pairs</td></tr>
+    </tbody>
+  </table>
+
+  <div class="footer">
+    <div>source: brinston_attribution &nbsp;·&nbsp; dimensional model v2.0</div>
+    <div>generated 2026-04-15</div>
+  </div>
+
+</div>
+</body>
+</html>
