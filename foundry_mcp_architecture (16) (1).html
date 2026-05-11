@@ -1,0 +1,4221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Foundry × MCP — Architecture & Identity Flow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;600&family=Inter+Tight:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:        #0c0d10;
+    --ink-2:      #14161b;
+    --ink-3:      #1c1f26;
+    --line:       #2a2e38;
+    --line-soft:  #1f232b;
+    --paper:      #f3efe7;
+    --paper-2:    #e8e2d4;
+    --bone:       #c9c3b3;
+    --muted:      #8a8a92;
+    --dim:        #5b5e68;
+
+    --gold:       #c8a665;
+    --gold-soft:  #b08c4a;
+    --rust:       #c46a3f;
+    --teal:       #6da89c;
+    --plum:       #8a6a8e;
+    --sage:       #9aaa86;
+    --sky:        #7a96b8;
+
+    --serif:      "Fraunces", "Times New Roman", serif;
+    --sans:       "Inter Tight", system-ui, sans-serif;
+    --mono:       "JetBrains Mono", ui-monospace, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--sans);
+    font-weight: 400;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background:
+      radial-gradient(ellipse at top left, rgba(200,166,101,0.04), transparent 40%),
+      radial-gradient(ellipse at bottom right, rgba(109,168,156,0.03), transparent 50%),
+      var(--ink);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grain overlay */
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E");
+    opacity: 0.04;
+    pointer-events: none;
+    mix-blend-mode: overlay;
+    z-index: 1000;
+  }
+
+  /* ================ MASTHEAD ================ */
+  header.masthead {
+    border-bottom: 1px solid var(--line);
+    padding: 28px 48px 24px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: end;
+    gap: 32px;
+    position: relative;
+  }
+
+  .brand {
+    font-family: var(--serif);
+    font-weight: 300;
+    font-size: 13px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+  .brand::before {
+    content: "§";
+    margin-right: 10px;
+    font-style: italic;
+    color: var(--gold-soft);
+  }
+
+  .masthead-title {
+    text-align: center;
+    border-left: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+    padding: 0 32px;
+  }
+  .masthead-title h1 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-style: italic;
+    font-size: clamp(28px, 4vw, 44px);
+    letter-spacing: -0.01em;
+    line-height: 1;
+    color: var(--paper);
+  }
+  .masthead-title .sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 10px;
+  }
+
+  .meta {
+    text-align: right;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+  .meta .num {
+    color: var(--gold);
+    font-weight: 500;
+  }
+
+  /* ================ TABS ================ */
+  .tabs {
+    display: flex;
+    gap: 0;
+    padding: 0 48px;
+    border-bottom: 1px solid var(--line);
+    background: var(--ink-2);
+  }
+  .tab {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 22px 32px;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.2s;
+    border-right: 1px solid var(--line-soft);
+  }
+  .tab:first-child { border-left: 1px solid var(--line-soft); }
+  .tab:hover { color: var(--paper); }
+  .tab.active {
+    color: var(--gold);
+    background: var(--ink);
+  }
+  .tab.active::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: -1px;
+    height: 1px;
+    background: var(--gold);
+  }
+  .tab .num {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 13px;
+    letter-spacing: 0;
+    margin-right: 12px;
+    color: var(--gold);
+    text-transform: none;
+  }
+
+  /* ================ CONTAINER ================ */
+  main {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    min-height: calc(100vh - 180px);
+  }
+
+  .canvas {
+    padding: 40px 48px;
+    border-right: 1px solid var(--line);
+    overflow-x: auto;
+  }
+
+  .panel {
+    padding: 40px 32px;
+    background: var(--ink-2);
+  }
+
+  /* View states */
+  .view { display: none; }
+  .view.active { display: block; animation: fade 0.3s ease; }
+  @keyframes fade {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Section heading */
+  .section-head {
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .section-head .kicker {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 10px;
+  }
+  .section-head h2 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 32px;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    color: var(--paper);
+  }
+  .section-head h2 em {
+    font-style: italic;
+    color: var(--gold);
+    font-weight: 300;
+  }
+  .section-head .lede {
+    font-family: var(--serif);
+    font-size: 15px;
+    font-weight: 300;
+    color: var(--bone);
+    margin-top: 12px;
+    max-width: 640px;
+    line-height: 1.55;
+  }
+
+  /* ================ ARCHITECTURE DIAGRAM ================ */
+  .arch {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 880px;
+  }
+
+  .arch-band {
+    border: 1px solid var(--line);
+    background: var(--ink-2);
+    padding: 18px 20px;
+    position: relative;
+    transition: border-color 0.2s;
+  }
+  .arch-band.accent { border-color: var(--line); }
+  .arch-band .band-label {
+    position: absolute;
+    top: -8px; left: 18px;
+    background: var(--ink);
+    padding: 0 10px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .arch-band .band-label .tier {
+    color: var(--gold);
+    margin-right: 6px;
+  }
+
+  .row {
+    display: grid;
+    gap: 12px;
+  }
+  .row.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .row.cols-4 { grid-template-columns: repeat(4, 1fr); }
+  .row.cols-5 { grid-template-columns: repeat(5, 1fr); }
+  .row.cols-6 { grid-template-columns: repeat(6, 1fr); }
+
+  .node {
+    background: var(--ink-3);
+    border: 1px solid var(--line);
+    padding: 14px 14px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    position: relative;
+    text-align: left;
+    font-family: inherit;
+    color: var(--paper);
+    width: 100%;
+  }
+  .node:hover {
+    border-color: var(--gold-soft);
+    background: #1f2229;
+    transform: translateY(-1px);
+  }
+  .node:focus-visible {
+    outline: 1px solid var(--gold);
+    outline-offset: 2px;
+  }
+  .node.active {
+    border-color: var(--gold);
+    background: #22252d;
+  }
+  .node.active::before {
+    content: "";
+    position: absolute;
+    left: -1px; top: -1px; bottom: -1px;
+    width: 2px;
+    background: var(--gold);
+  }
+
+  .node .label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+  .node .name {
+    font-family: var(--serif);
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--paper);
+    margin-bottom: 4px;
+  }
+  .node .desc {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  /* Node color variants — use accent border on left */
+  .node.purple .label { color: var(--plum); }
+  .node.teal   .label { color: var(--teal); }
+  .node.coral  .label { color: var(--rust); }
+  .node.sage   .label { color: var(--sage); }
+  .node.sky    .label { color: var(--sky); }
+
+  /* Project card emphasis */
+  .project-card {
+    border-color: var(--line);
+    background: linear-gradient(180deg, #1c1f26 0%, #181b22 100%);
+  }
+  .project-card .name { color: var(--gold); font-style: italic; }
+
+  /* Domain MCP styling */
+  .mcp-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+  }
+  .mcp {
+    background: var(--ink-3);
+    border: 1px solid var(--line);
+    padding: 16px 12px;
+    cursor: pointer;
+    transition: all 0.18s;
+    text-align: center;
+    font-family: inherit;
+    color: var(--paper);
+  }
+  .mcp:hover {
+    border-color: var(--teal);
+    background: #1f2530;
+    transform: translateY(-2px);
+  }
+  .mcp.active {
+    border-color: var(--teal);
+    background: #1f2a30;
+    box-shadow: 0 0 0 1px var(--teal);
+  }
+  .mcp .mcp-num {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 28px;
+    color: var(--teal);
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .mcp .mcp-name {
+    font-family: var(--serif);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--paper);
+    margin-bottom: 4px;
+  }
+  .mcp .mcp-tools {
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.35;
+  }
+
+  /* Snowflake broker emphasis */
+  .broker {
+    margin: 14px auto;
+    width: 70%;
+    background: linear-gradient(180deg, #1f232b 0%, #181b22 100%);
+    border: 1px solid var(--gold-soft);
+    padding: 18px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+  .broker:hover { border-color: var(--gold); }
+  .broker.active {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 1px var(--gold), 0 0 30px rgba(200,166,101,0.15);
+  }
+  .broker .label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+  .broker .name {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 20px;
+    font-weight: 400;
+    color: var(--paper);
+    margin-bottom: 6px;
+  }
+  .broker .desc {
+    font-size: 11px;
+    color: var(--bone);
+  }
+
+  /* Azure subscription scope wrapper */
+  .azure-scope {
+    position: relative;
+    margin: 4px 0;
+    padding: 0;
+  }
+  .scope-tag {
+    position: absolute;
+    top: -1px;
+    right: 14px;
+    background: var(--ink);
+    border: 1px solid var(--sky);
+    border-bottom: none;
+    padding: 8px 14px 6px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    transform: translateY(-100%);
+    z-index: 2;
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.3);
+  }
+  .scope-tag::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 1px;
+    background: var(--ink);
+  }
+  .scope-tag-kicker {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--sky);
+    font-weight: 600;
+  }
+  .scope-tag-name {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 13px;
+    color: var(--paper);
+  }
+  .scope-tag-meta {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+  .azure-scope > .scope-inner {
+    border: 1px solid var(--sky);
+    background: linear-gradient(180deg, rgba(122,150,184,0.04) 0%, rgba(122,150,184,0) 50%), var(--ink-2);
+    position: relative;
+  }
+  .azure-scope > .scope-inner::before,
+  .azure-scope > .scope-inner::after {
+    content: "";
+    position: absolute;
+    width: 10px; height: 10px;
+    border: 1px solid var(--sky);
+  }
+  .azure-scope > .scope-inner::before {
+    top: -1px; left: -1px;
+    border-right: none; border-bottom: none;
+  }
+  .azure-scope > .scope-inner::after {
+    bottom: -1px; right: -1px;
+    border-left: none; border-top: none;
+  }
+
+  @media (max-width: 760px) {
+    .scope-tag {
+      flex-direction: column;
+      gap: 2px;
+      right: 8px;
+      padding: 6px 10px 4px;
+    }
+    .scope-tag-meta { display: none; }
+  }
+
+  /* Container Apps scope variant — uses sage/teal accent to distinguish from Foundry */
+  .aca-scope .scope-tag {
+    border-color: var(--sage);
+  }
+  .aca-scope .scope-tag-kicker {
+    color: var(--sage);
+  }
+  .aca-scope > .scope-inner {
+    border-color: var(--sage);
+    background: linear-gradient(180deg, rgba(154,170,134,0.05) 0%, rgba(154,170,134,0) 50%), var(--ink-2);
+  }
+  .aca-scope > .scope-inner::before,
+  .aca-scope > .scope-inner::after {
+    border-color: var(--sage);
+  }
+
+  /* Divider between projects and MCPs within the ACA scope */
+  .scope-divider {
+    text-align: center;
+    margin: 18px -8px;
+    padding: 10px 0;
+    border-top: 1px dashed var(--line);
+    border-bottom: 1px dashed var(--line);
+    background: rgba(154,170,134,0.03);
+  }
+  .scope-divider span {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--sage);
+  }
+
+  /* Arrow indicators between bands */
+  .flow-arrow {
+    text-align: center;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 4px 0;
+    position: relative;
+  }
+  .flow-arrow::before {
+    content: "";
+    display: block;
+    width: 1px;
+    height: 14px;
+    background: linear-gradient(to bottom, transparent, var(--gold-soft));
+    margin: 0 auto 6px;
+  }
+
+  /* ================ FLOW SEQUENCE DIAGRAM ================ */
+  .flow {
+    min-width: 880px;
+    position: relative;
+  }
+
+  .flow-lanes {
+    display: grid;
+    grid-template-columns: 110px 110px 110px 110px 110px 1fr;
+    gap: 12px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 0;
+  }
+  .lane-head {
+    text-align: center;
+    padding: 12px 8px;
+    background: var(--ink-3);
+    border: 1px solid var(--line);
+  }
+  .lane-head .lane-icon {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 18px;
+    color: var(--gold);
+    margin-bottom: 4px;
+  }
+  .lane-head .lane-name {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--paper);
+  }
+
+  .step {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 24px;
+    padding: 20px 0;
+    border-bottom: 1px dashed var(--line-soft);
+    cursor: pointer;
+    transition: background 0.18s;
+    align-items: start;
+  }
+  .step:hover { background: rgba(200,166,101,0.02); }
+  .step.active { background: rgba(200,166,101,0.05); }
+  .step.active .step-num { color: var(--gold); border-color: var(--gold); }
+
+  .step-num {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 32px;
+    font-weight: 300;
+    color: var(--bone);
+    border-right: 1px solid var(--line);
+    padding-right: 16px;
+    text-align: right;
+    line-height: 1;
+    transition: color 0.2s;
+  }
+
+  .step-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .step-title {
+    font-family: var(--serif);
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--paper);
+    line-height: 1.2;
+  }
+  .step-route {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .step-route .actor {
+    background: var(--ink-3);
+    border: 1px solid var(--line);
+    padding: 4px 10px;
+    color: var(--paper);
+  }
+  .step-route .arrow {
+    color: var(--gold);
+    font-family: var(--serif);
+    font-size: 14px;
+  }
+  .step-detail {
+    font-size: 13px;
+    color: var(--bone);
+    line-height: 1.55;
+    max-width: 720px;
+  }
+  .step-token {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--teal);
+    background: var(--ink-3);
+    border-left: 2px solid var(--teal);
+    padding: 8px 12px;
+    margin-top: 4px;
+    line-height: 1.5;
+  }
+  .step-token .k { color: var(--muted); }
+  .step-token .v { color: var(--paper); }
+
+  /* ================ MIRO-STYLE MS REFERENCE VIEW ================ */
+  #view-msref .section-head {
+    margin-bottom: 20px;
+  }
+
+  .miro-frame {
+    background-color: #f4ede0;
+    background-image:
+      linear-gradient(rgba(166,148,108,0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(166,148,108,0.08) 1px, transparent 1px);
+    background-size: 24px 24px;
+    border: 1px solid #c9bfa3;
+    border-radius: 8px;
+    padding: 32px 28px 28px;
+    position: relative;
+    box-shadow:
+      inset 0 0 60px rgba(166,148,108,0.08),
+      0 4px 20px rgba(0,0,0,0.3);
+    color: #2a2620;
+    margin-top: 18px;
+  }
+
+  .miro-frame-tag {
+    position: absolute;
+    top: 0; left: 24px;
+    transform: translateY(-50%);
+    background: #1d1f23;
+    color: #f4ede0;
+    padding: 6px 14px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 2px;
+  }
+  .miro-frame-tag .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--gold);
+  }
+
+  .miro-canvas {
+    display: grid;
+    grid-template-columns: 160px 50px 200px 50px 320px 50px 200px;
+    grid-template-rows: 20px auto auto auto auto;
+    gap: 10px;
+    position: relative;
+    min-height: 540px;
+    align-items: start;
+  }
+  .miro-canvas .miro-arrow-h,
+  .miro-canvas .miro-group {
+    align-self: start;
+    margin-top: 30px;
+  }
+
+  /* Sticky cards */
+  .miro-card {
+    background: #fff7c2;
+    border: 1px solid rgba(0,0,0,0.08);
+    padding: 12px 14px;
+    border-radius: 2px;
+    cursor: pointer;
+    box-shadow:
+      0 1px 0 rgba(0,0,0,0.05),
+      0 4px 8px rgba(0,0,0,0.08),
+      inset 0 -2px 0 rgba(0,0,0,0.04);
+    transition: transform 0.15s, box-shadow 0.15s;
+    position: relative;
+    text-align: left;
+    color: #2a2620;
+    font-family: var(--sans);
+  }
+  .miro-card:hover {
+    transform: translateY(-2px) rotate(-0.5deg);
+    box-shadow:
+      0 2px 0 rgba(0,0,0,0.05),
+      0 10px 18px rgba(0,0,0,0.15),
+      inset 0 -2px 0 rgba(0,0,0,0.04);
+  }
+  .miro-card.active {
+    box-shadow:
+      0 0 0 2px var(--gold-soft),
+      0 10px 18px rgba(0,0,0,0.15);
+  }
+  .miro-card-name {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 14px;
+    line-height: 1.2;
+    margin-bottom: 3px;
+    color: #2a2620;
+  }
+  .miro-card-sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: #6a5d44;
+    letter-spacing: 0.04em;
+    line-height: 1.35;
+  }
+  .miro-icon {
+    font-size: 18px;
+    color: #8a6a3f;
+    margin-bottom: 4px;
+    line-height: 1;
+  }
+
+  .miro-sticky-yellow { background: #fff3a8; }
+  .miro-sticky-pink   { background: #ffd4d6; }
+  .miro-sticky-blue   { background: #c4dff2; }
+  .miro-sticky-mint   { background: #cfe9d4; }
+
+  .miro-user {
+    background: #ede4d0;
+    border: 1px dashed #8a7d5e;
+    text-align: center;
+    align-self: center;
+  }
+  .miro-user .miro-icon { color: #6a5d44; font-size: 22px; }
+
+  .miro-group {
+    background: rgba(255,255,255,0.45);
+    border: 1.5px dashed #a89968;
+    border-radius: 6px;
+    padding: 24px 14px 14px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-self: center;
+  }
+  .miro-group-tag {
+    position: absolute;
+    top: -10px; left: 12px;
+    background: #f4ede0;
+    padding: 2px 10px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #6a5d44;
+    border: 1px solid #a89968;
+    border-radius: 2px;
+  }
+  .miro-group-foundry { border-color: #c4877a; }
+  .miro-group-foundry .miro-group-tag {
+    color: #8b4a40;
+    border-color: #c4877a;
+  }
+  .miro-group-app .miro-group-tag {
+    color: #7a6320;
+    border-color: #c0a830;
+  }
+
+  /* Foundry account → project nested containers */
+  .miro-foundry-account {
+    background: rgba(255,235,232,0.4);
+    border: 1.5px dashed #c4877a;
+    border-radius: 8px;
+    padding: 26px 14px 14px;
+    position: relative;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+  }
+  .miro-foundry-account-tag {
+    position: absolute;
+    top: -12px; left: 14px;
+    background: #f4ede0;
+    padding: 3px 10px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #8b4a40;
+    border: 1px solid #c4877a;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    z-index: 2;
+  }
+  .miro-icon-azure {
+    color: #c4877a;
+    font-size: 11px;
+  }
+
+  .miro-foundry-project {
+    background: rgba(255,255,255,0.55);
+    border: 1px dashed #b86555;
+    border-radius: 6px;
+    padding: 22px 12px 12px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .miro-foundry-project-tag {
+    position: absolute;
+    top: -10px; left: 12px;
+    background: #f4ede0;
+    padding: 2px 10px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #8b4a40;
+    border: 1px solid #b86555;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .miro-mi-badge {
+    background: #2a2620;
+    color: #f4ede0;
+    padding: 1px 5px;
+    font-size: 8px;
+    letter-spacing: 0.15em;
+    border-radius: 2px;
+    font-style: italic;
+    font-family: var(--serif);
+  }
+
+  .miro-card-wide {
+    width: 100%;
+  }
+
+  .miro-subgrid {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed rgba(0,0,0,0.12);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+  }
+  .miro-sub {
+    background: rgba(255,255,255,0.6);
+    border: 1px solid rgba(139,74,64,0.25);
+    padding: 5px 8px;
+    border-radius: 2px;
+    cursor: pointer;
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    color: #5a3530;
+    transition: background 0.12s, transform 0.12s;
+  }
+  .miro-sub:hover {
+    background: #fff;
+    transform: translateX(1px);
+  }
+  .miro-sub.active {
+    background: #fff;
+    border-color: #8b4a40;
+    box-shadow: 0 0 0 1px #8b4a40;
+  }
+  .miro-sub-name {
+    font-weight: 500;
+  }
+
+  .miro-foundry-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .miro-card-faint {
+    opacity: 0.78;
+    background: #ffe4e5;
+  }
+
+  .miro-pill {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 2px 7px;
+    background: rgba(139,74,64,0.12);
+    color: #5a3530;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.05em;
+    border-radius: 8px;
+  }
+  .miro-pill-blue {
+    background: rgba(122,150,184,0.18);
+    color: #2c4960;
+  }
+  .miro-pill-teal {
+    background: rgba(79,138,120,0.18);
+    color: #2d6357;
+  }
+
+  /* Logo system — inline SVG Azure service icons. Used for learning and
+     documentation purposes per Microsoft's Azure architecture icons guidance:
+     https://learn.microsoft.com/en-us/azure/architecture/icons/ */
+  .miro-card { padding-right: 50px; }
+  .miro-logo {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
+    display: block;
+    pointer-events: none;
+    user-select: none;
+  }
+  .miro-logo svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.18));
+  }
+
+  .miro-logo-inline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+  .miro-logo-inline svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Extension marker — separates MS reference from custom additions */
+  .miro-extension-divider {
+    margin: 10px 0 4px;
+    text-align: center;
+    border-top: 2px dotted #b8860b;
+    padding-top: 6px;
+    position: relative;
+  }
+  .miro-extension-divider::before {
+    content: "✦";
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #fff;
+    color: #b8860b;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1px solid #b8860b;
+    font-size: 10px;
+    line-height: 16px;
+    text-align: center;
+  }
+  .miro-extension-divider span {
+    font-family: var(--mono);
+    font-size: 8px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #8a6520;
+    background: rgba(255,255,255,0.6);
+    padding: 1px 8px;
+    border-radius: 2px;
+  }
+  .miro-card-extension {
+    border: 1.5px solid #b8860b !important;
+    background: #ffe8b8 !important;
+    cursor: pointer;
+  }
+  .miro-card-extension:hover {
+    transform: translateY(-2px) rotate(-0.5deg);
+  }
+
+  /* React clients column */
+  .miro-clients {
+    background: rgba(255,255,255,0.45);
+    border: 1.5px dashed #6a8aa8;
+    border-radius: 8px;
+    padding: 22px 10px 12px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .miro-clients-tag {
+    position: absolute;
+    top: -10px; left: 12px;
+    background: #f4ede0;
+    padding: 2px 10px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #2c4960;
+    border: 1px solid #6a8aa8;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .miro-sub-badge {
+    background: #2a2620;
+    color: #d4e4f2;
+    padding: 1px 5px;
+    font-size: 8px;
+    letter-spacing: 0.12em;
+    border-radius: 2px;
+    text-transform: none;
+    font-family: var(--serif);
+    font-style: italic;
+    margin-left: 2px;
+  }
+  /* Separate-subscription variant — solid border instead of dashed,
+     subtle blue tint to read as 'still inside Azure, just different sub' */
+  .miro-clients-sep-sub {
+    border-style: solid;
+    background: rgba(122,150,184,0.08);
+  }
+  .miro-client-card {
+    background: #d4e4f2;
+    text-align: left;
+    width: 100%;
+    border: 1px solid rgba(0,0,0,0.08);
+    cursor: pointer;
+  }
+  .miro-client-card .miro-card-name {
+    font-size: 13px;
+  }
+  .miro-client-mark {
+    color: #2c4960;
+    font-size: 12px;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .miro-client-divider {
+    margin: 4px 0 2px;
+    text-align: center;
+    border-top: 1px dashed #8a9caf;
+    padding-top: 6px;
+  }
+  .miro-client-divider span {
+    font-family: var(--mono);
+    font-size: 8px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #5a7088;
+  }
+  .miro-client-batch {
+    background: #c4d8ec;
+    border-style: dashed;
+  }
+
+  /* Domain MCP fleet column */
+  .miro-mcp-fleet {
+    background: rgba(207,233,228,0.4);
+    border: 1.5px dashed #4f8a78;
+    border-radius: 8px;
+    padding: 24px 10px 12px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .miro-mcp-fleet-tag {
+    position: absolute;
+    top: -10px; left: 12px;
+    background: #f4ede0;
+    padding: 2px 10px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #2d6357;
+    border: 1px solid #4f8a78;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .miro-mcp-host {
+    background: #2a2620;
+    color: #cfe9d4;
+    padding: 1px 5px;
+    font-size: 8px;
+    letter-spacing: 0.12em;
+    border-radius: 2px;
+    text-transform: none;
+    font-family: var(--serif);
+    font-style: italic;
+  }
+  .miro-sticky-teal { background: #cfe9e2; }
+  .miro-mcp-card {
+    text-align: left;
+    width: 100%;
+    border: 1px solid rgba(0,0,0,0.08);
+    cursor: pointer;
+    position: relative;
+    padding: 10px 12px 10px 30px;
+  }
+  .miro-mcp-card .miro-card-name {
+    font-size: 13px;
+  }
+  .miro-mcp-glyph {
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 16px;
+    font-weight: 500;
+    color: #2d6357;
+    width: 18px;
+    text-align: center;
+  }
+  .miro-mcp-foot {
+    margin-top: 4px;
+    padding-top: 6px;
+    border-top: 1px dashed #4f8a78;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #2d6357;
+    text-align: center;
+  }
+
+  /* Host groups inside MCP fleet — separates ACA-hosted from AKS-hosted */
+  .miro-host-group {
+    background: rgba(255,255,255,0.35);
+    border-radius: 4px;
+    padding: 18px 8px 8px;
+    margin-bottom: 6px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .miro-host-tag {
+    position: absolute;
+    top: -8px; left: 8px;
+    padding: 2px 8px 2px 4px;
+    background: #f4ede0;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .miro-host-icon {
+    display: inline-flex;
+    width: 14px; height: 14px;
+  }
+  .miro-host-icon svg {
+    width: 100%; height: 100%;
+  }
+  .miro-host-aca {
+    color: #2d6357;
+    border: 1px solid #4f8a78;
+  }
+  .miro-host-aks {
+    color: #0062b8;
+    border: 1px solid #0078d4;
+  }
+
+  /* Snowflake tier — distinct from Azure-bordered components */
+  .miro-snowflake-tier {
+    background: rgba(41,181,232,0.06);
+    border: 1.5px dashed #29b5e8;
+    border-radius: 8px;
+    padding: 24px 10px 12px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .miro-snowflake-tag {
+    position: absolute;
+    top: -10px; left: 12px;
+    background: #f4ede0;
+    padding: 2px 10px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #1c7da3;
+    border: 1px solid #29b5e8;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .miro-sticky-snow {
+    background: #d6effa;
+    text-align: left;
+    width: 100%;
+    border: 1px solid rgba(0,0,0,0.08);
+    cursor: pointer;
+  }
+  .miro-arrow-snow::after {
+    border-top-color: #29b5e8 !important;
+  }
+  .miro-arrow-snow::before {
+    color: #29b5e8 !important;
+  }
+  .miro-arrow-snow .miro-step {
+    background: #1c7da3;
+  }
+
+  /* Tool-call arrow variant — uses teal accent */
+  .miro-arrow-tool::after {
+    border-top-color: #4f8a78 !important;
+  }
+  .miro-arrow-tool::before {
+    color: #4f8a78 !important;
+  }
+  .miro-arrow-tool .miro-step {
+    background: #2d6357;
+  }
+
+  .miro-arrow {
+    align-self: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    position: relative;
+  }
+  .miro-arrow-h {
+    height: 60px;
+    justify-content: center;
+    width: 100%;
+  }
+  .miro-arrow-h::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 14px;
+    top: 50%;
+    height: 0;
+    border-top: 2px dashed #6a5d44;
+    z-index: 0;
+  }
+  .miro-arrow-h::before {
+    content: "▶";
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6a5d44;
+    font-size: 12px;
+    z-index: 1;
+  }
+
+  .miro-arrow-v {
+    width: 100%;
+    height: 50px;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+  }
+  .miro-arrow-v::after {
+    content: "";
+    position: absolute;
+    top: 0; bottom: 14px;
+    left: 50%;
+    width: 0;
+    border-left: 2px dashed #6a5d44;
+    z-index: 0;
+  }
+  .miro-arrow-v::before {
+    content: "▼";
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #6a5d44;
+    font-size: 12px;
+    z-index: 1;
+  }
+
+  .miro-arrow-mini {
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 4px 0;
+    margin: 2px 0;
+    border-top: 1px dashed #c4877a;
+    border-bottom: 1px dashed #c4877a;
+  }
+  .miro-arrow-mini::before {
+    content: "↓";
+    color: #8b4a40;
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  .miro-arrow-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #6a5d44;
+    background: #f4ede0;
+    padding: 2px 6px;
+    z-index: 1;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  .miro-step {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: #2a2620;
+    color: #f4ede0;
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 500;
+    font-size: 13px;
+    z-index: 2;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    flex-shrink: 0;
+  }
+  .miro-step-large {
+    width: 30px; height: 30px;
+    font-size: 16px;
+  }
+  .miro-step-inline {
+    position: absolute;
+    top: -10px; left: -10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: #2a2620;
+    color: #f4ede0;
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 500;
+    font-size: 13px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    z-index: 3;
+  }
+
+  .miro-aisearch {
+    align-self: start;
+    text-align: left;
+  }
+
+  .miro-section {
+    background: rgba(207,233,212,0.4);
+    border: 1.5px dashed #6a8a6a;
+    border-radius: 6px;
+    padding: 22px 16px 14px;
+    position: relative;
+    margin-top: 16px;
+  }
+  .miro-section-tag {
+    position: absolute;
+    top: -14px; left: 14px;
+    background: #f4ede0;
+    padding: 2px 12px 2px 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #3d5d3d;
+    border: 1px solid #6a8a6a;
+    border-radius: 2px;
+  }
+  .miro-section-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .miro-legend {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px dashed #a89968;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #6a5d44;
+  }
+  .miro-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .miro-swatch {
+    width: 14px; height: 14px;
+    border: 1px solid rgba(0,0,0,0.1);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    border-radius: 1px;
+  }
+  .miro-legend-step .miro-step {
+    width: 16px; height: 16px;
+    font-size: 10px;
+  }
+
+  .miro-source {
+    margin-top: 14px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #8a7d5e;
+  }
+  .miro-source em {
+    font-family: var(--serif);
+    font-style: italic;
+    text-transform: none;
+    letter-spacing: 0;
+    color: #6a5d44;
+  }
+
+  /* ================ NETWORK TOPOLOGY (vNet & subnets) ================ */
+  .miro-network {
+    margin-top: 28px;
+    padding-top: 22px;
+    border-top: 1px dashed #a89968;
+  }
+  .miro-network-head {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    margin-bottom: 18px;
+  }
+  .miro-network-kicker {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #2c4960;
+    background: #d4e4f2;
+    padding: 3px 8px;
+    border-radius: 2px;
+  }
+  .miro-network-title {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 17px;
+    color: #2a2620;
+  }
+  .miro-network-meta {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #6a5d44;
+    margin-left: auto;
+  }
+
+  /* Public / external zones — outside the vNet */
+  .miro-zone {
+    border: 1px dashed #8a8a92;
+    border-radius: 4px;
+    padding: 12px 14px;
+    background: rgba(166,148,108,0.05);
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .miro-zone:hover {
+    background: rgba(166,148,108,0.1);
+    border-color: #6a5d44;
+  }
+  .miro-zone.active {
+    border-color: var(--gold-soft);
+    box-shadow: 0 0 0 1px var(--gold-soft);
+  }
+
+  /* Consumer-subscription variant — same Azure tenant, different sub.
+     Solid blue border to communicate 'still trusted, still Azure'. */
+  .miro-zone-consumer {
+    border-style: solid;
+    border-color: #6a8aa8;
+    background: rgba(122,150,184,0.08);
+  }
+  .miro-zone-consumer:hover {
+    background: rgba(122,150,184,0.14);
+    border-color: #2c5980;
+  }
+  .miro-zone-consumer .miro-zone-tag {
+    color: #2c4960;
+    font-weight: 600;
+  }
+
+  /* Network arrow variant for peering/PE callouts */
+  .miro-network-arrow-peer {
+    color: #2c5980;
+    font-weight: 600;
+  }
+  .miro-zone-tag {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #6a5d44;
+    margin-bottom: 6px;
+  }
+  .miro-zone-body {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .miro-zone-cidr {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #2a2620;
+    font-weight: 600;
+  }
+  .miro-zone-hosts {
+    font-family: var(--serif);
+    font-size: 12px;
+    font-style: italic;
+    color: #5a5040;
+  }
+
+  .miro-network-arrow {
+    text-align: center;
+    margin: 12px 0;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #5a7088;
+  }
+
+  /* The vNet boundary itself */
+  .miro-vnet {
+    border: 1.5px dashed #2c5980;
+    border-radius: 6px;
+    padding: 26px 14px 14px;
+    background: rgba(122,150,184,0.06);
+    position: relative;
+    cursor: pointer;
+  }
+  .miro-vnet:hover {
+    background: rgba(122,150,184,0.1);
+  }
+  .miro-vnet.active {
+    border-color: #1c4060;
+    box-shadow: 0 0 0 1px #1c4060;
+  }
+  .miro-vnet-tag {
+    position: absolute;
+    top: -11px; left: 14px;
+    background: #f4ede0;
+    padding: 3px 12px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #2c4960;
+    border: 1px solid #2c5980;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+  }
+
+  /* Subnet grid inside the vNet */
+  .miro-subnet-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+
+  .miro-subnet {
+    background: #fff;
+    border: 1px solid #b3c5d8;
+    border-radius: 3px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .miro-subnet:hover {
+    border-color: #2c5980;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(44,89,128,0.15);
+  }
+  .miro-subnet.active {
+    border-color: #1c4060;
+    box-shadow: 0 0 0 1px #1c4060, 0 4px 8px rgba(28,64,96,0.2);
+  }
+  .miro-subnet-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: #2c4960;
+    margin-bottom: 3px;
+    letter-spacing: 0.02em;
+  }
+  .miro-subnet-cidr {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: #5a7088;
+    margin-bottom: 6px;
+  }
+  .miro-subnet-hosts {
+    font-family: var(--serif);
+    font-size: 11px;
+    font-style: italic;
+    color: #2a2620;
+    line-height: 1.35;
+    margin-bottom: 4px;
+  }
+  .miro-subnet-deleg {
+    font-family: var(--mono);
+    font-size: 8px;
+    color: #8b6520;
+    background: rgba(184,134,11,0.08);
+    padding: 2px 5px;
+    border-radius: 2px;
+    display: inline-block;
+    letter-spacing: 0.04em;
+  }
+
+  @media (max-width: 1100px) {
+    .miro-subnet-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 760px) {
+    .miro-subnet-grid { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 1100px) {
+    .miro-canvas {
+      grid-template-columns: 90px 50px 180px 50px 200px;
+    }
+  }
+  @media (max-width: 760px) {
+    .miro-canvas {
+      grid-template-columns: 1fr !important;
+      grid-template-rows: auto !important;
+      gap: 16px;
+    }
+    .miro-canvas > * {
+      grid-column: 1 !important;
+      grid-row: auto !important;
+    }
+    .miro-arrow-h, .miro-arrow-v {
+      height: 40px;
+    }
+    .miro-arrow-h::after {
+      left: 50%;
+      right: auto;
+      top: 0;
+      bottom: 14px;
+      width: 0;
+      height: auto;
+      border-top: none;
+      border-left: 2px dashed #6a5d44;
+    }
+    .miro-arrow-h::before {
+      content: "▼";
+      right: auto;
+      left: 50%;
+      top: auto;
+      bottom: 0;
+      transform: translateX(-50%);
+    }
+  }
+
+  /* ================ CODEGEN PIPELINE (Plate IV) ================ */
+  .cg-frame {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-top: 8px;
+  }
+
+  .cg-band {
+    border: 1px solid var(--line);
+    background: var(--ink-2);
+    padding: 26px 22px 22px;
+    position: relative;
+  }
+  .cg-band-tag {
+    position: absolute;
+    top: -10px; left: 22px;
+    background: var(--ink);
+    padding: 4px 14px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    border: 1px solid var(--line);
+  }
+  .cg-band-num {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 13px;
+    color: var(--gold);
+    letter-spacing: 0;
+  }
+  .cg-band-name {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--paper);
+    font-weight: 600;
+  }
+  .cg-band-meta {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .cg-row {
+    display: grid;
+    gap: 12px;
+  }
+  .cg-row-2 { grid-template-columns: repeat(2, 1fr); }
+  .cg-row-3 { grid-template-columns: repeat(3, 1fr); }
+  .cg-row-4 { grid-template-columns: repeat(4, 1fr); }
+
+  .cg-card {
+    background: var(--ink-3);
+    border: 1px solid var(--line);
+    padding: 16px 16px;
+    cursor: pointer;
+    text-align: left;
+    color: var(--paper);
+    font-family: inherit;
+    transition: all 0.18s;
+    position: relative;
+  }
+  .cg-card:hover {
+    border-color: var(--gold-soft);
+    transform: translateY(-1px);
+    background: #1f2229;
+  }
+  .cg-card.active {
+    border-color: var(--gold);
+    background: #22252d;
+  }
+  .cg-card.active::before {
+    content: "";
+    position: absolute;
+    left: -1px; top: -1px; bottom: -1px;
+    width: 2px;
+    background: var(--gold);
+  }
+  .cg-card-icon {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 22px;
+    color: var(--gold);
+    line-height: 1;
+    margin-bottom: 10px;
+  }
+  .cg-card-name {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 15px;
+    color: var(--paper);
+    margin-bottom: 4px;
+  }
+  .cg-card-sub {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  /* Color variants per band — accent on the icon only, keeps grid coherent */
+  .cg-card-input  .cg-card-icon { color: var(--sky); }
+  .cg-card-plan   .cg-card-icon { color: var(--plum); }
+  .cg-card-qa     .cg-card-icon { color: var(--sage); }
+  .cg-card-output .cg-card-icon { color: var(--rust); }
+
+  /* Inter-band arrow */
+  .cg-arrow {
+    text-align: center;
+    padding: 14px 0;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--dim);
+    position: relative;
+  }
+  .cg-arrow::before {
+    content: "";
+    display: block;
+    width: 1px;
+    height: 16px;
+    background: linear-gradient(to bottom, transparent, var(--gold-soft));
+    margin: 0 auto 8px;
+  }
+
+  /* The loop — the centerpiece */
+  .cg-band-loop {
+    background: linear-gradient(180deg, #181b22 0%, var(--ink-2) 100%);
+    border-color: var(--gold-soft);
+  }
+  .cg-loop {
+    display: flex;
+    justify-content: center;
+    padding: 20px 0 30px;
+  }
+  .cg-loop-ring {
+    position: relative;
+    width: 520px;
+    height: 520px;
+    max-width: 100%;
+  }
+  .cg-loop-stage {
+    position: absolute;
+    width: 150px;
+    background: var(--ink-3);
+    border: 1px solid var(--line);
+    padding: 12px 12px 10px;
+    cursor: pointer;
+    text-align: left;
+    color: var(--paper);
+    font-family: inherit;
+    transition: all 0.18s;
+  }
+  .cg-loop-stage:hover {
+    border-color: var(--gold);
+    transform: scale(1.02);
+    z-index: 5;
+  }
+  .cg-loop-stage.active {
+    border-color: var(--gold);
+    background: #22252d;
+    box-shadow: 0 0 0 1px var(--gold), 0 0 30px rgba(200,166,101,0.2);
+  }
+  /* Six positions around a hexagon — top, upper-right, lower-right, bottom, lower-left, upper-left */
+  .cg-loop-1 { top: 0;          left: 50%; transform: translateX(-50%); }
+  .cg-loop-2 { top: 18%;        right: 0; }
+  .cg-loop-3 { bottom: 18%;     right: 0; }
+  .cg-loop-4 { bottom: 0;       left: 50%; transform: translateX(-50%); }
+  .cg-loop-5 { bottom: 18%;     left: 0; }
+  .cg-loop-6 { top: 18%;        left: 0; }
+
+  .cg-loop-num {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 14px;
+    color: var(--gold);
+    margin-bottom: 4px;
+  }
+  .cg-loop-name {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--paper);
+    margin-bottom: 3px;
+    letter-spacing: 0.02em;
+  }
+  .cg-loop-sub {
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.35;
+  }
+
+  .cg-loop-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    border: 1px dashed var(--gold-soft);
+    background: rgba(200,166,101,0.04);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    pointer-events: none;
+  }
+  .cg-loop-center-mark {
+    font-family: var(--serif);
+    font-size: 32px;
+    color: var(--gold);
+    line-height: 1;
+  }
+  .cg-loop-center-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--gold);
+    text-align: center;
+    line-height: 1.4;
+  }
+
+  /* Governance strip below the loop */
+  .cg-governance {
+    margin-top: 16px;
+    padding: 14px 16px;
+    border: 1px dashed var(--rust);
+    background: rgba(196,106,63,0.04);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .cg-governance:hover {
+    background: rgba(196,106,63,0.08);
+  }
+  .cg-governance.active {
+    border-color: var(--rust);
+    background: rgba(196,106,63,0.1);
+  }
+  .cg-governance-tag {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--rust);
+    margin-bottom: 8px;
+  }
+  .cg-governance-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .cg-gov-pill {
+    background: var(--ink-3);
+    border: 1px solid rgba(196,106,63,0.3);
+    padding: 4px 10px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--bone);
+    border-radius: 2px;
+  }
+
+  @media (max-width: 760px) {
+    .cg-row-3, .cg-row-4 { grid-template-columns: 1fr 1fr; }
+    .cg-row-2 { grid-template-columns: 1fr; }
+    .cg-loop-ring {
+      width: 100%;
+      height: auto;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .cg-loop-stage {
+      position: static;
+      transform: none !important;
+      width: 100%;
+    }
+    .cg-loop-center { display: none; }
+  }
+
+  /* Audit footer */
+  .audit-strip {
+    margin-top: 24px;
+    padding: 18px 22px;
+    border: 1px dashed var(--gold-soft);
+    background: rgba(200,166,101,0.03);
+  }
+  .audit-strip .label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+  .audit-strip .text {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 14px;
+    color: var(--paper);
+    line-height: 1.5;
+  }
+
+  /* Why-it-matters callout */
+  .why-it-matters {
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 20px;
+    align-items: start;
+    margin: 28px 0 36px;
+    padding: 22px 24px 22px 20px;
+    background: linear-gradient(90deg, rgba(196,106,63,0.06), rgba(196,106,63,0.01));
+    border-left: 2px solid var(--rust);
+    position: relative;
+  }
+  .why-it-matters::before {
+    content: "";
+    position: absolute;
+    top: 0; bottom: 0; right: 0;
+    width: 1px;
+    background: var(--line-soft);
+  }
+  .wim-mark {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 300;
+    font-size: 56px;
+    line-height: 0.85;
+    color: var(--rust);
+    text-align: center;
+    border-right: 1px solid var(--line-soft);
+    padding-right: 12px;
+  }
+  .wim-body {
+    padding-top: 4px;
+  }
+  .wim-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--rust);
+    margin-bottom: 8px;
+  }
+  .wim-text {
+    font-family: var(--serif);
+    font-size: 15px;
+    font-weight: 300;
+    color: var(--paper);
+    line-height: 1.55;
+  }
+  .wim-text strong {
+    color: var(--rust);
+    font-weight: 500;
+    font-style: italic;
+  }
+
+  /* ================ SIDE PANEL ================ */
+  .panel-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+  .panel-empty .ornament {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 48px;
+    color: var(--gold);
+    margin-bottom: 16px;
+    line-height: 1;
+  }
+  .panel-empty .text {
+    font-family: var(--serif);
+    font-size: 15px;
+    font-style: italic;
+    color: var(--bone);
+    line-height: 1.5;
+  }
+
+  .panel-content { display: none; }
+  .panel-content.active { display: block; animation: fade 0.25s; }
+
+  .panel-kicker {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 12px;
+  }
+  .panel-title {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 26px;
+    line-height: 1.15;
+    color: var(--paper);
+    margin-bottom: 6px;
+  }
+  .panel-title em {
+    font-style: italic;
+    color: var(--gold);
+  }
+  .panel-rule {
+    width: 40px;
+    height: 1px;
+    background: var(--gold);
+    margin: 18px 0;
+  }
+  .panel-text {
+    font-size: 14px;
+    color: var(--bone);
+    line-height: 1.65;
+    margin-bottom: 16px;
+  }
+  .panel-text strong {
+    color: var(--paper);
+    font-weight: 500;
+  }
+  .panel-meta {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px 20px;
+    font-family: var(--mono);
+    font-size: 11px;
+    padding-top: 16px;
+    margin-top: 20px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .panel-meta dt {
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-size: 10px;
+  }
+  .panel-meta dd {
+    color: var(--paper);
+  }
+
+  .panel-list {
+    list-style: none;
+    padding: 0;
+    margin: 12px 0;
+  }
+  .panel-list li {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line-soft);
+    font-size: 13px;
+    color: var(--bone);
+    line-height: 1.5;
+    display: grid;
+    grid-template-columns: 18px 1fr;
+    gap: 8px;
+  }
+  .panel-list li::before {
+    content: "→";
+    color: var(--gold);
+    font-family: var(--serif);
+  }
+  .panel-list li:last-child { border-bottom: none; }
+
+  /* Read-references block in side panel */
+  .panel-reads {
+    margin: 22px 0 4px;
+    padding: 14px 16px;
+    background: rgba(200,166,101,0.04);
+    border-left: 2px solid var(--gold-soft);
+  }
+  .panel-reads-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 10px;
+  }
+  .panel-reads-row {
+    display: grid;
+    grid-template-columns: 14px 60px 1fr;
+    align-items: baseline;
+    gap: 10px;
+    padding: 4px 0;
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  .panel-reads-row + .panel-reads-row {
+    border-top: 1px dashed var(--line-soft);
+    margin-top: 2px;
+    padding-top: 8px;
+  }
+  .panel-reads-arrow {
+    color: var(--gold);
+    font-weight: 600;
+    text-align: center;
+  }
+  .panel-reads-key {
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-size: 9px;
+  }
+  .panel-reads-list {
+    color: var(--paper);
+  }
+
+  /* ================ FOOTER ================ */
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 24px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  footer .ornament {
+    font-family: var(--serif);
+    font-style: italic;
+    color: var(--gold);
+    font-size: 18px;
+    letter-spacing: 0;
+  }
+
+  @media (max-width: 1100px) {
+    main { grid-template-columns: 1fr; }
+    .panel { border-top: 1px solid var(--line); }
+    .canvas { border-right: none; }
+  }
+  @media (max-width: 760px) {
+    header.masthead { grid-template-columns: 1fr; gap: 12px; padding: 20px; }
+    .masthead-title { border: none; padding: 0; text-align: left; }
+    .meta { text-align: left; }
+    .tabs { padding: 0 20px; overflow-x: auto; }
+    .tab { padding: 18px 18px; font-size: 10px; }
+    .canvas, .panel { padding: 24px 20px; }
+    footer { padding: 20px; flex-direction: column; gap: 10px; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Azure service icon sprite — geometric marks rendered inline as SVG.
+     For learning and documentation purposes only.
+     Reference: https://learn.microsoft.com/en-us/azure/architecture/icons/ -->
+<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+  <defs>
+
+    <!-- React (logo for client SPAs) -->
+    <symbol id="ic-react" viewBox="0 0 32 32">
+      <g fill="none" stroke="#61dafb" stroke-width="1.4">
+        <ellipse cx="16" cy="16" rx="11" ry="4.2"/>
+        <ellipse cx="16" cy="16" rx="11" ry="4.2" transform="rotate(60 16 16)"/>
+        <ellipse cx="16" cy="16" rx="11" ry="4.2" transform="rotate(120 16 16)"/>
+      </g>
+      <circle cx="16" cy="16" r="2" fill="#61dafb"/>
+    </symbol>
+
+    <!-- Azure Logic Apps / Functions (batch trigger) -->
+    <symbol id="ic-batch" viewBox="0 0 32 32">
+      <rect x="2" y="2" width="28" height="28" rx="3" fill="#0078d4"/>
+      <path d="M9 8 L20 8 L20 14 L23 14 L14 24 L14 18 L9 18 Z" fill="#fff"/>
+    </symbol>
+
+    <!-- Azure App Service -->
+    <symbol id="ic-appservice" viewBox="0 0 32 32">
+      <defs>
+        <linearGradient id="g-as" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#50b1f7"/>
+          <stop offset="100%" stop-color="#0078d4"/>
+        </linearGradient>
+      </defs>
+      <circle cx="16" cy="16" r="13" fill="url(#g-as)"/>
+      <path d="M9 19 Q16 8, 23 19" stroke="#fff" stroke-width="1.6" fill="none"/>
+      <circle cx="16" cy="13" r="1.2" fill="#fff"/>
+      <circle cx="11" cy="19" r="1" fill="#fff"/>
+      <circle cx="21" cy="19" r="1" fill="#fff"/>
+    </symbol>
+
+    <!-- Microsoft Entra ID -->
+    <symbol id="ic-entra" viewBox="0 0 32 32">
+      <defs>
+        <linearGradient id="g-entra" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#32bcad"/>
+          <stop offset="100%" stop-color="#0078d4"/>
+        </linearGradient>
+      </defs>
+      <path d="M16 4 L27 26 L21 26 L16 16 L11 26 L5 26 Z" fill="url(#g-entra)"/>
+      <path d="M16 4 L27 26 L21 26 L16 16 Z" fill="#0078d4" opacity="0.5"/>
+    </symbol>
+
+    <!-- Microsoft / Foundry brand mark (4-square) -->
+    <symbol id="ic-foundry" viewBox="0 0 32 32">
+      <rect x="3" y="3" width="12" height="12" fill="#f25022"/>
+      <rect x="17" y="3" width="12" height="12" fill="#7fba00"/>
+      <rect x="3" y="17" width="12" height="12" fill="#00a4ef"/>
+      <rect x="17" y="17" width="12" height="12" fill="#ffb900"/>
+    </symbol>
+
+    <!-- Foundry project — folder/cube hybrid -->
+    <symbol id="ic-project" viewBox="0 0 32 32">
+      <defs>
+        <linearGradient id="g-proj" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#a67ef0"/>
+          <stop offset="100%" stop-color="#6b3fc8"/>
+        </linearGradient>
+      </defs>
+      <path d="M4 8 L13 8 L15 11 L28 11 L28 25 L4 25 Z" fill="url(#g-proj)"/>
+      <path d="M4 8 L13 8 L15 11 L4 11 Z" fill="#3d2080" opacity="0.4"/>
+    </symbol>
+
+    <!-- Foundry Agent Service / AI Studio -->
+    <symbol id="ic-agent" viewBox="0 0 32 32">
+      <defs>
+        <linearGradient id="g-agent" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#ff6b9d"/>
+          <stop offset="100%" stop-color="#b8336a"/>
+        </linearGradient>
+      </defs>
+      <circle cx="16" cy="16" r="12" fill="url(#g-agent)"/>
+      <circle cx="16" cy="16" r="4.5" fill="#fff"/>
+      <circle cx="16" cy="16" r="2" fill="#b8336a"/>
+      <path d="M16 4 L16 8 M16 24 L16 28 M4 16 L8 16 M24 16 L28 16" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/>
+    </symbol>
+
+    <!-- Azure OpenAI -->
+    <symbol id="ic-openai" viewBox="0 0 32 32">
+      <rect x="2" y="2" width="28" height="28" rx="3" fill="#10a37f"/>
+      <path d="M16 6 C20 6 23 9 23 13 C25 14 26 16 26 18 C26 21 23 24 20 24 L12 24 C9 24 6 21 6 18 C6 16 7 14 9 13 C9 9 12 6 16 6 Z" fill="#fff" opacity="0.95"/>
+      <circle cx="16" cy="16" r="2.5" fill="#10a37f"/>
+    </symbol>
+
+    <!-- Foundry Models catalog -->
+    <symbol id="ic-models" viewBox="0 0 32 32">
+      <defs>
+        <linearGradient id="g-models" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#9b6ff0"/>
+          <stop offset="100%" stop-color="#5e2ba8"/>
+        </linearGradient>
+      </defs>
+      <path d="M16 4 L26 9 L26 23 L16 28 L6 23 L6 9 Z" fill="url(#g-models)"/>
+      <path d="M16 4 L26 9 L16 14 L6 9 Z" fill="#fff" opacity="0.25"/>
+      <path d="M16 14 L16 28" stroke="#fff" stroke-width="0.8" opacity="0.4"/>
+    </symbol>
+
+    <!-- Connection / link -->
+    <symbol id="ic-connection" viewBox="0 0 32 32">
+      <rect x="2" y="2" width="28" height="28" rx="3" fill="#c4877a"/>
+      <path d="M11 11 L11 21 L15 21 M21 21 L21 11 L17 11" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <circle cx="11" cy="11" r="2" fill="#fff"/>
+      <circle cx="21" cy="21" r="2" fill="#fff"/>
+    </symbol>
+
+    <!-- Azure AI Search -->
+    <symbol id="ic-search" viewBox="0 0 32 32">
+      <defs>
+        <linearGradient id="g-search" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#50b1f7"/>
+          <stop offset="100%" stop-color="#0062b8"/>
+        </linearGradient>
+      </defs>
+      <rect x="2" y="2" width="28" height="28" rx="3" fill="url(#g-search)"/>
+      <circle cx="14" cy="14" r="6" stroke="#fff" stroke-width="2" fill="none"/>
+      <line x1="18.5" y1="18.5" x2="24" y2="24" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+    </symbol>
+
+    <!-- Azure Container Apps -->
+    <symbol id="ic-aca" viewBox="0 0 32 32">
+      <defs>
+        <linearGradient id="g-aca" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#3aafa9"/>
+          <stop offset="100%" stop-color="#2d6357"/>
+        </linearGradient>
+      </defs>
+      <rect x="2" y="2" width="28" height="28" rx="3" fill="url(#g-aca)"/>
+      <rect x="6" y="8" width="9" height="6" fill="#fff" opacity="0.95"/>
+      <rect x="17" y="8" width="9" height="6" fill="#fff" opacity="0.7"/>
+      <rect x="6" y="18" width="9" height="6" fill="#fff" opacity="0.7"/>
+      <rect x="17" y="18" width="9" height="6" fill="#fff" opacity="0.95"/>
+    </symbol>
+
+    <!-- MCP gateway — bidirectional / API gateway shape -->
+    <symbol id="ic-gateway" viewBox="0 0 32 32">
+      <defs>
+        <linearGradient id="g-gw" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#e8b54a"/>
+          <stop offset="100%" stop-color="#b8860b"/>
+        </linearGradient>
+      </defs>
+      <rect x="2" y="2" width="28" height="28" rx="3" fill="url(#g-gw)"/>
+      <path d="M7 12 L12 12 L12 9 L17 14 L12 19 L12 16 L7 16 Z" fill="#fff"/>
+      <path d="M25 20 L20 20 L20 23 L15 18 L20 13 L20 16 L25 16 Z" fill="#fff"/>
+    </symbol>
+
+    <!-- Application Insights -->
+    <symbol id="ic-appins" viewBox="0 0 32 32">
+      <defs>
+        <linearGradient id="g-appins" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#9b4dca"/>
+          <stop offset="100%" stop-color="#68217a"/>
+        </linearGradient>
+      </defs>
+      <circle cx="16" cy="16" r="13" fill="url(#g-appins)"/>
+      <path d="M16 7 L20 14 L26 14 L21 18 L23 25 L16 21 L9 25 L11 18 L6 14 L12 14 Z" fill="#fff"/>
+    </symbol>
+
+    <!-- Azure Monitor -->
+    <symbol id="ic-monitor" viewBox="0 0 32 32">
+      <defs>
+        <linearGradient id="g-mon" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#e85d80"/>
+          <stop offset="100%" stop-color="#c44569"/>
+        </linearGradient>
+      </defs>
+      <rect x="2" y="2" width="28" height="28" rx="3" fill="url(#g-mon)"/>
+      <path d="M5 22 L11 16 L15 19 L20 12 L27 18" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="11" cy="16" r="1.5" fill="#fff"/>
+      <circle cx="15" cy="19" r="1.5" fill="#fff"/>
+      <circle cx="20" cy="12" r="1.5" fill="#fff"/>
+    </symbol>
+
+    <!-- MCP service mark (used in legends) -->
+    <symbol id="ic-mcp" viewBox="0 0 32 32">
+      <rect x="2" y="2" width="28" height="28" rx="3" fill="#2d6357"/>
+      <path d="M8 22 L8 10 L13 18 L18 10 L18 22" stroke="#fff" stroke-width="2" fill="none" stroke-linejoin="round"/>
+      <circle cx="23" cy="14" r="2" fill="#fff"/>
+      <path d="M23 16 L23 22" stroke="#fff" stroke-width="2"/>
+    </symbol>
+
+    <!-- Azure Kubernetes Service (AKS) — Kubernetes wheel inside Azure square -->
+    <symbol id="ic-aks" viewBox="0 0 32 32">
+      <defs>
+        <linearGradient id="g-aks" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#50b1f7"/>
+          <stop offset="100%" stop-color="#0062b8"/>
+        </linearGradient>
+      </defs>
+      <rect x="2" y="2" width="28" height="28" rx="3" fill="url(#g-aks)"/>
+      <!-- Kubernetes heptagon-style wheel -->
+      <g transform="translate(16 16)" stroke="#fff" stroke-width="1.4" fill="none">
+        <polygon points="0,-9 8.6,-2.8 5.3,7.3 -5.3,7.3 -8.6,-2.8"/>
+        <circle r="3" fill="#fff" stroke="none"/>
+        <line x1="0" y1="-9" x2="0" y2="-3"/>
+        <line x1="8.6" y1="-2.8" x2="2.6" y2="-1"/>
+        <line x1="5.3" y1="7.3" x2="1.6" y2="2.5"/>
+        <line x1="-5.3" y1="7.3" x2="-1.6" y2="2.5"/>
+        <line x1="-8.6" y1="-2.8" x2="-2.6" y2="-1"/>
+      </g>
+    </symbol>
+
+    <!-- Snowflake -->
+    <symbol id="ic-snowflake" viewBox="0 0 32 32">
+      <rect x="2" y="2" width="28" height="28" rx="3" fill="#29b5e8"/>
+      <g stroke="#fff" stroke-width="1.6" stroke-linecap="round" fill="none">
+        <!-- 6 spokes of a snowflake -->
+        <line x1="16" y1="6" x2="16" y2="26"/>
+        <line x1="7.3" y1="11" x2="24.7" y2="21"/>
+        <line x1="7.3" y1="21" x2="24.7" y2="11"/>
+        <!-- arrowhead caps -->
+        <path d="M13 8 L16 6 L19 8"/>
+        <path d="M13 24 L16 26 L19 24"/>
+        <path d="M9 9 L7.3 11 L9.5 12.6"/>
+        <path d="M22.5 19.4 L24.7 21 L23 23"/>
+        <path d="M9.5 19.4 L7.3 21 L9 23"/>
+        <path d="M23 9 L24.7 11 L22.5 12.6"/>
+      </g>
+    </symbol>
+
+  </defs>
+</svg>
+
+<header class="masthead">
+  <div class="brand">Reference Architecture</div>
+  <div class="masthead-title">
+    <h1>Foundry <em>×</em> MCP</h1>
+    <div class="sub">Wealth Management · Domain MCP Fleet · Snowflake</div>
+  </div>
+  <div class="meta">
+    <div><span class="num">VOL.&nbsp;I</span> · INTERACTIVE</div>
+    <div>Click any node for detail</div>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button class="tab active" data-view="msref" role="tab">
+    <span class="num">i.</span>Architecture
+  </button>
+  <button class="tab" data-view="flow" role="tab">
+    <span class="num">ii.</span>Identity Flow
+  </button>
+  <button class="tab" data-view="gateway" role="tab">
+    <span class="num">iii.</span>Gateway Internals
+  </button>
+  <button class="tab" data-view="codegen" role="tab">
+    <span class="num">iv.</span>Codegen Pipeline
+  </button>
+</nav>
+
+<main>
+  <section class="canvas">
+
+    <!-- ========================== VIEW 2: IDENTITY FLOW ========================== -->
+    <div class="view" id="view-flow">
+      <div class="section-head">
+        <div class="kicker">Plate II · On-Behalf-Of Token Chain</div>
+        <h2>How identity <em>survives</em> every hop.</h2>
+        <p class="lede">The single most important flow to get right in this architecture, because everything else &mdash; row-level security in Snowflake, audit trails, advisor-vs-client scoping &mdash; depends on the user identity surviving every hop. Traced end to end below.</p>
+        <p class="lede" style="margin-top: 10px; color: var(--muted); font-size: 13px;">A sequence in ten movements. The user's Entra token is never forwarded as-is &mdash; it is exchanged at every boundary, with the user assertion threading all the way through to Snowflake's row-access policies.</p>
+      </div>
+
+      <div class="why-it-matters">
+        <div class="wim-mark">!</div>
+        <div class="wim-body">
+          <div class="wim-label">Why this flow is load-bearing</div>
+          <div class="wim-text">If identity breaks at any hop, three things fail at once: <strong>row-level security</strong> can no longer scope advisors to their book, <strong>audit trails</strong> lose the user attribution regulators require, and <strong>advisor-vs-client scoping</strong> collapses into "trust the LLM to ask correctly" &mdash; which is precisely the threat model OBO exists to defeat.</div>
+        </div>
+      </div>
+
+      <div class="flow">
+        <div class="flow-lanes">
+          <div class="lane-head"><div class="lane-icon">A</div><div class="lane-name">User</div></div>
+          <div class="lane-head"><div class="lane-icon">B</div><div class="lane-name">Chat UI</div></div>
+          <div class="lane-head"><div class="lane-icon">C</div><div class="lane-name">Foundry</div></div>
+          <div class="lane-head"><div class="lane-icon">D</div><div class="lane-name">MCP&nbsp;gw</div></div>
+          <div class="lane-head"><div class="lane-icon">E</div><div class="lane-name">Domain MCP</div></div>
+          <div class="lane-head"><div class="lane-icon">F</div><div class="lane-name">Snowflake</div></div>
+        </div>
+
+        <div class="step" data-key="s1">
+          <div class="step-num">i</div>
+          <div class="step-body">
+            <div class="step-title">Sign in via OIDC</div>
+            <div class="step-route">
+              <span class="actor">User</span><span class="arrow">→</span>
+              <span class="actor">Entra</span><span class="arrow">→</span>
+              <span class="actor">Chat UI</span>
+            </div>
+            <div class="step-detail">User authenticates against Entra ID. The chat UI receives an access token whose audience is the UI's own app registration — not Foundry, not yet.</div>
+          </div>
+        </div>
+
+        <div class="step" data-key="s2">
+          <div class="step-num">ii</div>
+          <div class="step-body">
+            <div class="step-title">Call Foundry with user token</div>
+            <div class="step-route">
+              <span class="actor">Chat UI</span><span class="arrow">→</span>
+              <span class="actor">Foundry</span>
+            </div>
+            <div class="step-detail">UI exchanges its token for one with audience = Foundry, then sends it as a Bearer token. The user's identity is in the <code>sub</code> and <code>upn</code> claims.</div>
+            <div class="step-token"><span class="k">aud</span><span class="v"> = Foundry</span> &nbsp; · &nbsp; <span class="k">sub</span><span class="v"> = user.upn</span></div>
+          </div>
+        </div>
+
+        <div class="step" data-key="s3">
+          <div class="step-num">iii</div>
+          <div class="step-body">
+            <div class="step-title">Foundry validates &amp; binds run</div>
+            <div class="step-route">
+              <span class="actor">Foundry</span>
+            </div>
+            <div class="step-detail">Foundry validates signature, expiry, and audience. Extracts user claims and binds them to the thread and run. Every event in this run will carry the user identity in its trace.</div>
+          </div>
+        </div>
+
+        <div class="step" data-key="s4">
+          <div class="step-num">iv</div>
+          <div class="step-body">
+            <div class="step-title">Agent emits tool call</div>
+            <div class="step-route">
+              <span class="actor">Foundry</span><span class="arrow">→</span>
+              <span class="actor">MCP gw</span>
+            </div>
+            <div class="step-detail">The agent decides it needs <code>performance.get_twr</code>. The orchestrator hands the call to the MCP gateway along with the user context.</div>
+          </div>
+        </div>
+
+        <div class="step" data-key="s5">
+          <div class="step-num">v</div>
+          <div class="step-body">
+            <div class="step-title">First OBO exchange · gateway → Performance MCP</div>
+            <div class="step-route">
+              <span class="actor">MCP gw</span><span class="arrow">→</span>
+              <span class="actor">Entra</span><span class="arrow">→</span>
+              <span class="actor">MCP gw</span>
+            </div>
+            <div class="step-detail">The gateway presents <em>its own</em> managed identity credentials plus the user's token as an assertion to Entra. Entra issues a new token whose audience is the Performance MCP and whose subject is still the user.</div>
+            <div class="step-token"><span class="k">aud</span><span class="v"> = api://perf-mcp</span> &nbsp; · &nbsp; <span class="k">sub</span><span class="v"> = user.upn</span> &nbsp; · &nbsp; <span class="k">azp</span><span class="v"> = mcp-gw</span></div>
+          </div>
+        </div>
+
+        <div class="step" data-key="s6">
+          <div class="step-num">vi</div>
+          <div class="step-body">
+            <div class="step-title">Call domain MCP with OBO token</div>
+            <div class="step-route">
+              <span class="actor">MCP gw</span><span class="arrow">→</span>
+              <span class="actor">Performance MCP</span>
+            </div>
+            <div class="step-detail">JSON-RPC over MCP. The Performance MCP receives the call with the freshly-minted token in the Authorization header.</div>
+          </div>
+        </div>
+
+        <div class="step" data-key="s7">
+          <div class="step-num">vii</div>
+          <div class="step-body">
+            <div class="step-title">Domain MCP validates &amp; checks scope</div>
+            <div class="step-route">
+              <span class="actor">Performance MCP</span>
+            </div>
+            <div class="step-detail">The MCP independently validates the token, then enforces its own scope check — even though the gateway already let the call through. Defense in depth: every hop verifies independently.</div>
+          </div>
+        </div>
+
+        <div class="step" data-key="s8">
+          <div class="step-num">viii</div>
+          <div class="step-body">
+            <div class="step-title">Second OBO exchange · MCP → Snowflake</div>
+            <div class="step-route">
+              <span class="actor">Performance MCP</span><span class="arrow">→</span>
+              <span class="actor">Entra</span><span class="arrow">→</span>
+              <span class="actor">Performance MCP</span>
+            </div>
+            <div class="step-detail">Now the MCP needs a Snowflake-bound token. It presents its own managed identity plus the <em>original</em> user assertion. The user identity threads through — it is re-presented, not regenerated.</div>
+            <div class="step-token"><span class="k">aud</span><span class="v"> = snowflake</span> &nbsp; · &nbsp; <span class="k">sub</span><span class="v"> = user.upn</span> &nbsp; · &nbsp; <span class="k">azp</span><span class="v"> = perf-mcp</span></div>
+          </div>
+        </div>
+
+        <div class="step" data-key="s9">
+          <div class="step-num">ix</div>
+          <div class="step-body">
+            <div class="step-title">Snowflake MCP brokers session</div>
+            <div class="step-route">
+              <span class="actor">Performance MCP</span><span class="arrow">→</span>
+              <span class="actor">Snowflake MCP</span><span class="arrow">→</span>
+              <span class="actor">Snowflake</span>
+            </div>
+            <div class="step-detail">The Snowflake MCP applies pooling, warehouse routing, query timeouts. The session it opens uses Snowflake's external OAuth security integration — <code>CURRENT_USER()</code> resolves to the actual person.</div>
+          </div>
+        </div>
+
+        <div class="step" data-key="s10">
+          <div class="step-num">x</div>
+          <div class="step-body">
+            <div class="step-title">Row-access policy fires</div>
+            <div class="step-route">
+              <span class="actor">Snowflake</span>
+            </div>
+            <div class="step-detail">Policies on <code>holdings</code>, <code>transactions</code>, <code>accounts</code> reference <code>CURRENT_USER()</code> to filter to the advisor's book. The database — not the application — enforces entitlement. If identity ever broke upstream, this returns empty: the safe failure mode.</div>
+          </div>
+        </div>
+
+        <div class="audit-strip">
+          <div class="label">At every step</div>
+          <div class="text">log&nbsp;{ user.upn, agent_id, run_id, tool, args, result_hash, timestamp } → immutable audit store, joinable across hops by run_id.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================== VIEW 3: GATEWAY INTERNALS ========================== -->
+    <div class="view" id="view-gateway">
+      <div class="section-head">
+        <div class="kicker">Plate III · MCP Gateway · Component View</div>
+        <h2>Inside the <em>chokepoint</em>.</h2>
+        <p class="lede">The MCP gateway shown as a single box on Plate I is in fact a small system. Three concerns: a request pipeline that every tool call traverses, a set of registries the pipeline reads from, and operational services that wrap both.</p>
+      </div>
+
+      <div class="why-it-matters" style="border-left-color: var(--gold-soft); background: linear-gradient(90deg, rgba(200,166,101,0.06), rgba(200,166,101,0.01));">
+        <div class="wim-mark" style="color: var(--gold);">§</div>
+        <div class="wim-body">
+          <div class="wim-label" style="color: var(--gold);">How to read this plate</div>
+          <div class="wim-text">A request enters from <strong>Foundry's agent runtime</strong> at the top, flows through the <strong>request pipeline</strong> left-to-right, and exits to a <strong>domain MCP</strong> at the bottom. The pipeline reads from registries on its way through and reports to operations the whole time.</div>
+        </div>
+      </div>
+
+      <div class="arch">
+
+        <!-- Inbound -->
+        <div class="arch-band">
+          <span class="band-label"><span class="tier">in</span>From Foundry agent runtime</span>
+          <div class="row cols-3">
+            <button class="node" data-key="gw-in-call">
+              <div class="label">Inbound · 01</div>
+              <div class="name">Tool call</div>
+              <div class="desc">{ tool, args, run_id, user_token }</div>
+            </button>
+            <button class="node" data-key="gw-in-context">
+              <div class="label">Inbound · 02</div>
+              <div class="name">Run context</div>
+              <div class="desc">Project, agent, thread</div>
+            </button>
+            <button class="node" data-key="gw-in-policy">
+              <div class="label">Inbound · 03</div>
+              <div class="name">Policy hints</div>
+              <div class="desc">Budget, scopes allowed</div>
+            </button>
+          </div>
+        </div>
+
+        <div class="flow-arrow">↓ &nbsp; Pipeline begins</div>
+
+        <!-- Request pipeline (left-to-right) -->
+        <div class="arch-band" style="border-color: var(--gold-soft);">
+          <span class="band-label" style="color: var(--gold);"><span class="tier">α</span>Request Pipeline</span>
+          <div class="row cols-5" style="gap: 8px;">
+            <button class="node teal" data-key="gw-router">
+              <div class="label">Stage · 01</div>
+              <div class="name">Intelligent router</div>
+              <div class="desc">Tool → MCP target, version, region</div>
+            </button>
+            <button class="node teal" data-key="gw-validator">
+              <div class="label">Stage · 02</div>
+              <div class="name">Schema validator</div>
+              <div class="desc">Args type-check, refuse malformed</div>
+            </button>
+            <button class="node teal" data-key="gw-cache">
+              <div class="label">Stage · 03</div>
+              <div class="name">Result cache</div>
+              <div class="desc">Idempotent reads, TTL keyed on user</div>
+            </button>
+            <button class="node teal" data-key="gw-dispatch">
+              <div class="label">Stage · 04</div>
+              <div class="name">Dispatch + OBO</div>
+              <div class="desc">Token exchange, call MCP</div>
+            </button>
+            <button class="node teal" data-key="gw-aggregator">
+              <div class="label">Stage · 05</div>
+              <div class="name">Response aggregator</div>
+              <div class="desc">Merge, normalize, paginate</div>
+            </button>
+          </div>
+        </div>
+
+        <div class="flow-arrow">↑ &nbsp; reads from &nbsp; · &nbsp; ↓ &nbsp; reports to</div>
+
+        <!-- Registries + Operations side-by-side band -->
+        <div class="arch-band">
+          <span class="band-label"><span class="tier">β</span>Registries (read-side)</span>
+          <div class="row cols-3">
+            <button class="node purple" data-key="gw-tool-reg">
+              <div class="label">Registry · 01</div>
+              <div class="name">Tool registry</div>
+              <div class="desc">Tool defs, schemas, scopes, owners</div>
+            </button>
+            <button class="node purple" data-key="gw-domain-reg">
+              <div class="label">Registry · 02</div>
+              <div class="name">Domain registry</div>
+              <div class="desc">MCP servers, endpoints, versions</div>
+            </button>
+            <button class="node purple" data-key="gw-policy-reg">
+              <div class="label">Registry · 03</div>
+              <div class="name">Policy &amp; entitlements</div>
+              <div class="desc">Project → tool → scope matrix</div>
+            </button>
+          </div>
+        </div>
+
+        <div class="arch-band">
+          <span class="band-label"><span class="tier">γ</span>Operations (cross-cutting)</span>
+          <div class="row cols-3">
+            <button class="node coral" data-key="gw-secrets">
+              <div class="label">Ops · 01</div>
+              <div class="name">Secret manager</div>
+              <div class="desc">Key Vault refs, rotation, MI bindings</div>
+            </button>
+            <button class="node coral" data-key="gw-health">
+              <div class="label">Ops · 02</div>
+              <div class="name">Health monitor</div>
+              <div class="desc">MCP probes, circuit breakers, SLOs</div>
+            </button>
+            <button class="node coral" data-key="gw-telemetry">
+              <div class="label">Ops · 03</div>
+              <div class="name">Telemetry &amp; audit</div>
+              <div class="desc">Traces, tool-call log, eval hooks</div>
+            </button>
+          </div>
+        </div>
+
+        <div class="flow-arrow">↓ &nbsp; Pipeline exits</div>
+
+        <!-- Outbound -->
+        <div class="arch-band">
+          <span class="band-label"><span class="tier">out</span>To domain MCP fleet</span>
+          <div class="row cols-3">
+            <button class="node sage" data-key="gw-out-call">
+              <div class="label">Outbound · 01</div>
+              <div class="name">JSON-RPC call</div>
+              <div class="desc">OBO-scoped token, signed headers</div>
+            </button>
+            <button class="node sage" data-key="gw-out-result">
+              <div class="label">Outbound · 02</div>
+              <div class="name">Result back</div>
+              <div class="desc">Validated, cached, returned to agent</div>
+            </button>
+            <button class="node sage" data-key="gw-out-error">
+              <div class="label">Outbound · 03</div>
+              <div class="name">Error path</div>
+              <div class="desc">Retry, fallback, circuit-break</div>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ========================== VIEW 4: CODEGEN PIPELINE ========================== -->
+    <div class="view" id="view-codegen">
+      <div class="section-head">
+        <div class="kicker">Plate IV · Code Generation Pipeline</div>
+        <h2>From requirement to <em>pull request</em>.</h2>
+        <p class="lede">A multi-stage agent pipeline. Inputs arrive in four shapes &mdash; text, spreadsheets, screenshots, freeform queries &mdash; and exit as governed, tested code in a pull request. The recursive repair loop in the middle is what makes this an agent and not a generator.</p>
+      </div>
+
+      <div class="cg-frame">
+
+        <!-- ============ BAND 1: READ REQUIREMENTS ============ -->
+        <div class="cg-band">
+          <div class="cg-band-tag">
+            <span class="cg-band-num">01</span>
+            <span class="cg-band-name">Read requirements</span>
+            <span class="cg-band-meta">multi-modal ingest</span>
+          </div>
+          <div class="cg-row cg-row-4">
+            <button class="cg-card cg-card-input" data-key="cg-text">
+              <div class="cg-card-icon">¶</div>
+              <div class="cg-card-name">Text spec</div>
+              <div class="cg-card-sub">Markdown, Word, Confluence</div>
+            </button>
+            <button class="cg-card cg-card-input" data-key="cg-excel">
+              <div class="cg-card-icon">⊞</div>
+              <div class="cg-card-name">Excel parsing</div>
+              <div class="cg-card-sub">Cells, formulas, macros (VBA)</div>
+            </button>
+            <button class="cg-card cg-card-input" data-key="cg-ocr">
+              <div class="cg-card-icon">⌘</div>
+              <div class="cg-card-name">Screenshot OCR</div>
+              <div class="cg-card-sub">UI mocks, whiteboard photos</div>
+            </button>
+            <button class="cg-card cg-card-input" data-key="cg-query">
+              <div class="cg-card-icon">?</div>
+              <div class="cg-card-name">User queries</div>
+              <div class="cg-card-sub">Conversational, ad-hoc asks</div>
+            </button>
+          </div>
+        </div>
+
+        <div class="cg-arrow">↓ &nbsp; normalize to a unified requirement model</div>
+
+        <!-- ============ BAND 2: PLAN ============ -->
+        <div class="cg-band cg-band-plan">
+          <div class="cg-band-tag">
+            <span class="cg-band-num">02</span>
+            <span class="cg-band-name">Plan</span>
+            <span class="cg-band-meta">decompose &amp; checkpoint</span>
+          </div>
+          <div class="cg-row cg-row-2">
+            <button class="cg-card cg-card-plan" data-key="cg-checkpoints">
+              <div class="cg-card-icon">◆</div>
+              <div class="cg-card-name">Checkpoints</div>
+              <div class="cg-card-sub">Resumable milestones · run-state snapshots</div>
+            </button>
+            <button class="cg-card cg-card-plan" data-key="cg-features">
+              <div class="cg-card-icon">▤</div>
+              <div class="cg-card-name">Features &amp; stories</div>
+              <div class="cg-card-sub">Decomposed work items · acceptance criteria</div>
+            </button>
+          </div>
+        </div>
+
+        <div class="cg-arrow">↓ &nbsp; for each story, enter the codegen loop</div>
+
+        <!-- ============ BAND 3: GENERATE CODE (the loop) ============ -->
+        <div class="cg-band cg-band-loop">
+          <div class="cg-band-tag">
+            <span class="cg-band-num">03</span>
+            <span class="cg-band-name">Generate code</span>
+            <span class="cg-band-meta">recursive repair loop</span>
+          </div>
+
+          <div class="cg-loop">
+            <div class="cg-loop-ring">
+              <button class="cg-loop-stage cg-loop-1" data-key="cg-plan">
+                <div class="cg-loop-num">i</div>
+                <div class="cg-loop-name">plan()</div>
+                <div class="cg-loop-sub">decide approach</div>
+              </button>
+              <button class="cg-loop-stage cg-loop-2" data-key="cg-schema">
+                <div class="cg-loop-num">ii</div>
+                <div class="cg-loop-name">get schema</div>
+                <div class="cg-loop-sub">live INFORMATION_SCHEMA</div>
+              </button>
+              <button class="cg-loop-stage cg-loop-3" data-key="cg-write">
+                <div class="cg-loop-num">iii</div>
+                <div class="cg-loop-name">write_code()</div>
+                <div class="cg-loop-sub">draft files &amp; tests</div>
+              </button>
+              <button class="cg-loop-stage cg-loop-4" data-key="cg-test">
+                <div class="cg-loop-num">iv</div>
+                <div class="cg-loop-name">run_tests()</div>
+                <div class="cg-loop-sub">unit + integration</div>
+              </button>
+              <button class="cg-loop-stage cg-loop-5" data-key="cg-analyze">
+                <div class="cg-loop-num">v</div>
+                <div class="cg-loop-name">analyze_errors()</div>
+                <div class="cg-loop-sub">diagnose failures</div>
+              </button>
+              <button class="cg-loop-stage cg-loop-6" data-key="cg-repair">
+                <div class="cg-loop-num">vi</div>
+                <div class="cg-loop-name">repair</div>
+                <div class="cg-loop-sub">patch &amp; retry · max N attempts</div>
+              </button>
+              <div class="cg-loop-center" aria-hidden="true">
+                <div class="cg-loop-center-mark">↻</div>
+                <div class="cg-loop-center-label">Repair<br>loop</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Governance overlay on the loop -->
+          <div class="cg-governance" data-key="cg-governance">
+            <div class="cg-governance-tag">Governance · runs on every iteration</div>
+            <div class="cg-governance-items">
+              <span class="cg-gov-pill">PII detection</span>
+              <span class="cg-gov-pill">License scan</span>
+              <span class="cg-gov-pill">Secret scan</span>
+              <span class="cg-gov-pill">Style &amp; lint</span>
+              <span class="cg-gov-pill">Dependency policy</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="cg-arrow">↓ &nbsp; once tests pass &amp; governance clears</div>
+
+        <!-- ============ BAND 4: QA AGENTS ============ -->
+        <div class="cg-band cg-band-qa">
+          <div class="cg-band-tag">
+            <span class="cg-band-num">04</span>
+            <span class="cg-band-name">QA agents</span>
+            <span class="cg-band-meta">independent validation</span>
+          </div>
+          <div class="cg-row cg-row-3">
+            <button class="cg-card cg-card-qa" data-key="cg-qa-spec">
+              <div class="cg-card-icon">✓</div>
+              <div class="cg-card-name">Spec conformance</div>
+              <div class="cg-card-sub">Does code match the requirement?</div>
+            </button>
+            <button class="cg-card cg-card-qa" data-key="cg-qa-behavior">
+              <div class="cg-card-icon">◎</div>
+              <div class="cg-card-name">Behavior validation</div>
+              <div class="cg-card-sub">Property tests, edge cases</div>
+            </button>
+            <button class="cg-card cg-card-qa" data-key="cg-qa-regression">
+              <div class="cg-card-icon">∿</div>
+              <div class="cg-card-name">Regression suite</div>
+              <div class="cg-card-sub">Existing tests still green</div>
+            </button>
+          </div>
+        </div>
+
+        <div class="cg-arrow">↓ &nbsp; package outputs</div>
+
+        <!-- ============ BAND 5: OUTPUT ============ -->
+        <div class="cg-band cg-band-output">
+          <div class="cg-band-tag">
+            <span class="cg-band-num">05</span>
+            <span class="cg-band-name">Output</span>
+            <span class="cg-band-meta">human + machine consumable</span>
+          </div>
+          <div class="cg-row cg-row-3">
+            <button class="cg-card cg-card-output" data-key="cg-out-html">
+              <div class="cg-card-icon">◧</div>
+              <div class="cg-card-name">HTML report</div>
+              <div class="cg-card-sub">Run summary, diffs, eval scores</div>
+            </button>
+            <button class="cg-card cg-card-output" data-key="cg-out-data">
+              <div class="cg-card-icon">[ ]</div>
+              <div class="cg-card-name">Table / JSON</div>
+              <div class="cg-card-sub">Structured payload for downstream</div>
+            </button>
+            <button class="cg-card cg-card-output" data-key="cg-out-pr">
+              <div class="cg-card-icon">⎘</div>
+              <div class="cg-card-name">PR generator</div>
+              <div class="cg-card-sub">Branch · commits · description · reviewers</div>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ========================== VIEW 1: ARCHITECTURE (Miro-style) ========================== -->
+    <div class="view active" id="view-msref">
+      <div class="section-head">
+        <div class="kicker">Plate I · Architecture</div>
+        <h2>Basic Foundry chat &mdash; <em>traced</em>.</h2>
+        <p class="lede">The reference architecture from Microsoft Learn, redrawn in a Miro register: sticky cards on paper, six numbered steps tracing the request from browser to model and back. Single region, learning topology.</p>
+      </div>
+
+      <div class="miro-frame">
+        <div class="miro-frame-tag">
+          <span class="dot"></span>
+          <span>basic-foundry-chat &nbsp;·&nbsp; reference-arch &nbsp;·&nbsp; v1</span>
+          <span class="dot"></span>
+        </div>
+
+        <div class="miro-canvas">
+
+          <!-- React client apps stacked in column 1 -->
+          <div class="miro-clients miro-clients-sep-sub" style="grid-column: 1; grid-row: 2;">
+            <div class="miro-clients-tag">
+              <span class="miro-icon-azure">▲</span>
+              React clients
+              <span class="miro-sub-badge" title="Separate Azure subscription">sub: consumer</span>
+            </div>
+            <button class="miro-card miro-client-card" data-key="ms-client-esg">
+              <div class="miro-logo" aria-hidden="true"><svg><use href="#ic-react"/></svg></div>
+              <div class="miro-card-name">ESG Buddy</div>
+              <div class="miro-card-sub">Advisor copilot · React</div>
+            </button>
+            <button class="miro-card miro-client-card" data-key="ms-client-chat">
+              <div class="miro-logo" aria-hidden="true"><svg><use href="#ic-react"/></svg></div>
+              <div class="miro-card-name">Client Chatbot</div>
+              <div class="miro-card-sub">Self-serve · React</div>
+            </button>
+            <button class="miro-card miro-client-card" data-key="ms-client-perf">
+              <div class="miro-logo" aria-hidden="true"><svg><use href="#ic-react"/></svg></div>
+              <div class="miro-card-name">Performance Insight</div>
+              <div class="miro-card-sub">Research analyst · React</div>
+            </button>
+            <div class="miro-client-divider">
+              <span>scheduled · no UI</span>
+            </div>
+            <button class="miro-card miro-client-card miro-client-batch" data-key="ms-client-batch">
+              <div class="miro-logo" aria-hidden="true"><svg><use href="#ic-batch"/></svg></div>
+              <div class="miro-card-name">Batch Reports</div>
+              <div class="miro-card-sub">Logic Apps / Functions</div>
+            </button>
+          </div>
+
+          <!-- Step 1 arrow + label -->
+          <div class="miro-arrow miro-arrow-h" style="grid-column: 2; grid-row: 2;">
+            <span class="miro-step">1</span>
+            <span class="miro-arrow-label">HTTPS</span>
+          </div>
+
+          <!-- App Service (with Easy Auth inside) -->
+          <div class="miro-group miro-group-app" style="grid-column: 3; grid-row: 2;">
+            <div class="miro-group-tag">
+              <span class="miro-logo-inline" aria-hidden="true"><svg><use href="#ic-appservice"/></svg></span>
+              Azure App Service
+            </div>
+            <div class="miro-card miro-sticky-yellow" data-key="ms-easyauth">
+              <div class="miro-step-inline">2</div>
+              <div class="miro-logo" aria-hidden="true"><svg><use href="#ic-entra"/></svg></div>
+              <div class="miro-card-name">Easy Auth</div>
+              <div class="miro-card-sub">Entra ID sign-in</div>
+            </div>
+            <div class="miro-card miro-sticky-yellow" data-key="ms-chatui">
+              <div class="miro-step-inline">3</div>
+              <div class="miro-logo" aria-hidden="true"><svg><use href="#ic-appservice"/></svg></div>
+              <div class="miro-card-name">App backend &amp; API</div>
+              <div class="miro-card-sub">Hosts all React apps · Persistent Agents SDK</div>
+            </div>
+          </div>
+
+          <!-- Arrow into Foundry -->
+          <div class="miro-arrow miro-arrow-h" style="grid-column: 4; grid-row: 2;">
+            <span class="miro-step">3</span>
+            <span class="miro-arrow-label">SDK call</span>
+          </div>
+
+          <!-- Foundry account → project → components -->
+          <div class="miro-foundry-account" style="grid-column: 5; grid-row: 2;" data-key="ms-foundry-account">
+            <div class="miro-foundry-account-tag">
+              <span class="miro-logo-inline" aria-hidden="true"><svg><use href="#ic-foundry"/></svg></span>
+              Microsoft Foundry · Account
+            </div>
+
+            <div class="miro-foundry-project" data-key="ms-foundry-project">
+              <div class="miro-foundry-project-tag">
+                <span class="miro-logo-inline" aria-hidden="true"><svg><use href="#ic-project"/></svg></span>
+                Foundry Project
+                <span class="miro-mi-badge" title="Project managed identity">MI</span>
+              </div>
+
+              <!-- Agent Service with internal sub-components -->
+              <div class="miro-card miro-sticky-pink miro-card-wide" data-key="ms-agent">
+                <div class="miro-logo" aria-hidden="true"><svg><use href="#ic-agent"/></svg></div>
+                <div class="miro-card-name">Foundry Agent Service</div>
+                <div class="miro-card-sub">Codeless · nondeterministic orchestration</div>
+                <div class="miro-subgrid">
+                  <button class="miro-sub" data-key="ms-agent-threads">
+                    <span class="miro-sub-name">Threads &amp; runs</span>
+                  </button>
+                  <button class="miro-sub" data-key="ms-agent-tools">
+                    <span class="miro-sub-name">Tool calls</span>
+                  </button>
+                  <button class="miro-sub" data-key="ms-agent-safety">
+                    <span class="miro-sub-name">Content safety</span>
+                  </button>
+                  <button class="miro-sub" data-key="ms-agent-prompt">
+                    <span class="miro-sub-name">System prompt</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="miro-arrow-mini">
+                <span class="miro-step">5</span>
+                <span class="miro-arrow-label">prompt + grounding</span>
+              </div>
+
+              <!-- Model deployment + Connections row -->
+              <div class="miro-foundry-row">
+                <div class="miro-card miro-sticky-pink" data-key="ms-model">
+                  <div class="miro-logo" aria-hidden="true"><svg><use href="#ic-openai"/></svg></div>
+                  <div class="miro-card-name">Model deployment</div>
+                  <div class="miro-card-sub">Azure OpenAI · GPT</div>
+                  <div class="miro-pill">Global Standard</div>
+                </div>
+                <div class="miro-card miro-sticky-pink" data-key="ms-connections">
+                  <div class="miro-logo" aria-hidden="true"><svg><use href="#ic-connection"/></svg></div>
+                  <div class="miro-card-name">Connections</div>
+                  <div class="miro-card-sub">Refs to external data</div>
+                  <div class="miro-pill miro-pill-blue">→ AI Search</div>
+                </div>
+              </div>
+
+              <!-- Foundry Models catalog reference -->
+              <div class="miro-card miro-sticky-pink miro-card-faint" data-key="ms-foundry-models">
+                <div class="miro-logo" aria-hidden="true"><svg><use href="#ic-models"/></svg></div>
+                <div class="miro-card-name">Foundry Models catalog</div>
+                <div class="miro-card-sub">MaaS · OpenAI &amp; partner models</div>
+              </div>
+
+              <!-- MCP gateway -->
+              <button class="miro-card miro-sticky-pink miro-card-wide miro-card-extension" data-key="ms-mcp-gateway">
+                <div class="miro-logo" aria-hidden="true"><svg><use href="#ic-gateway"/></svg></div>
+                <div class="miro-card-name">MCP gateway</div>
+                <div class="miro-card-sub">Tool routing · OBO · scope enforcement</div>
+                <div class="miro-pill miro-pill-teal">→ Domain MCPs</div>
+              </button>
+            </div>
+          </div>
+
+          <!-- AI Search hangs below Foundry, connected via "connections" -->
+          <div class="miro-arrow miro-arrow-v" style="grid-column: 5; grid-row: 3;">
+            <span class="miro-step">4</span>
+            <span class="miro-arrow-label">grounding query</span>
+          </div>
+
+          <div class="miro-card miro-sticky-blue miro-aisearch" style="grid-column: 5; grid-row: 4;" data-key="ms-search">
+            <div class="miro-logo" aria-hidden="true"><svg><use href="#ic-search"/></svg></div>
+            <div class="miro-card-name">Azure AI Search</div>
+            <div class="miro-card-sub">Indexed grounding · external to Foundry</div>
+          </div>
+
+          <!-- Tool-call arrow into MCP fleet -->
+          <div class="miro-arrow miro-arrow-h miro-arrow-tool" style="grid-column: 6; grid-row: 2;">
+            <span class="miro-step">4a</span>
+            <span class="miro-arrow-label">tool calls</span>
+          </div>
+
+          <!-- Domain MCP fleet column -->
+          <div class="miro-mcp-fleet" style="grid-column: 7; grid-row: 2;">
+            <div class="miro-mcp-fleet-tag">
+              <span class="miro-logo-inline" aria-hidden="true"><svg><use href="#ic-mcp"/></svg></span>
+              Domain MCP fleet
+            </div>
+
+            <!-- ACA-hosted MCPs -->
+            <div class="miro-host-group">
+              <div class="miro-host-tag miro-host-aca">
+                <span class="miro-host-icon" aria-hidden="true"><svg><use href="#ic-aca"/></svg></span>
+                Container Apps
+              </div>
+              <button class="miro-card miro-sticky-teal miro-mcp-card" data-key="ms-mcp-perf">
+                <div class="miro-mcp-glyph">i</div>
+                <div class="miro-card-name">Performance MCP</div>
+                <div class="miro-card-sub">TWR · IRR · benchmark</div>
+              </button>
+              <button class="miro-card miro-sticky-teal miro-mcp-card" data-key="ms-mcp-aum">
+                <div class="miro-mcp-glyph">ii</div>
+                <div class="miro-card-name">AUM MCP</div>
+                <div class="miro-card-sub">Balances · flows</div>
+              </button>
+              <button class="miro-card miro-sticky-teal miro-mcp-card" data-key="ms-mcp-client">
+                <div class="miro-mcp-glyph">iii</div>
+                <div class="miro-card-name">Client Info MCP</div>
+                <div class="miro-card-sub">Profile · KYC</div>
+              </button>
+              <button class="miro-card miro-sticky-teal miro-mcp-card" data-key="ms-mcp-tx">
+                <div class="miro-mcp-glyph">iv</div>
+                <div class="miro-card-name">Transaction MCP</div>
+                <div class="miro-card-sub">Trades · cash flows</div>
+              </button>
+            </div>
+
+            <!-- AKS-hosted MCPs -->
+            <div class="miro-host-group">
+              <div class="miro-host-tag miro-host-aks">
+                <span class="miro-host-icon" aria-hidden="true"><svg><use href="#ic-aks"/></svg></span>
+                Kubernetes (AKS)
+              </div>
+              <button class="miro-card miro-sticky-teal miro-mcp-card" data-key="ms-mcp-risk">
+                <div class="miro-mcp-glyph">v</div>
+                <div class="miro-card-name">Risk &amp; Attribution MCP</div>
+                <div class="miro-card-sub">VaR · factor attrib. · custom networking</div>
+              </button>
+              <button class="miro-card miro-sticky-teal miro-mcp-card" data-key="ms-mcp-snow">
+                <div class="miro-mcp-glyph">⌘</div>
+                <div class="miro-card-name">Snowflake MCP</div>
+                <div class="miro-card-sub">Connection broker · pool · routing</div>
+              </button>
+            </div>
+          </div>
+
+          <!-- Snowflake tier — below the MCP fleet, spans the right side -->
+          <div class="miro-arrow miro-arrow-v miro-arrow-snow" style="grid-column: 7; grid-row: 3;">
+            <span class="miro-step">4b</span>
+            <span class="miro-arrow-label">SQL via OBO</span>
+          </div>
+
+          <div class="miro-snowflake-tier" style="grid-column: 7; grid-row: 4;">
+            <div class="miro-snowflake-tag">
+              <span class="miro-logo-inline" aria-hidden="true"><svg><use href="#ic-snowflake"/></svg></span>
+              Snowflake · external data platform
+            </div>
+            <button class="miro-card miro-sticky-snow" data-key="ms-snow-marts">
+              <div class="miro-card-name">Data products / Vault domains</div>
+              <div class="miro-card-sub">Domain views: perf, aum, client, tx, risk</div>
+            </button>
+            <button class="miro-card miro-sticky-snow" data-key="ms-snow-wh">
+              <div class="miro-card-name">Virtual warehouses</div>
+              <div class="miro-card-sub">Per-domain compute · auto-suspend</div>
+            </button>
+            <button class="miro-card miro-sticky-snow" data-key="ms-snow-rls">
+              <div class="miro-card-name">Row-access policies</div>
+              <div class="miro-card-sub">CURRENT_USER() · advisor / client scope</div>
+            </button>
+          </div>
+
+          <!-- Monitoring sub-section bottom -->
+          <div class="miro-section miro-monitoring" style="grid-column: 3 / span 5; grid-row: 5;">
+            <div class="miro-section-tag">
+              <span class="miro-step miro-step-large">6</span>
+              <span>Monitoring</span>
+            </div>
+            <div class="miro-section-cards">
+              <div class="miro-card miro-sticky-mint" data-key="ms-appins">
+                <div class="miro-logo" aria-hidden="true"><svg><use href="#ic-appins"/></svg></div>
+                <div class="miro-card-name">Application Insights</div>
+                <div class="miro-card-sub">Request &amp; agent telemetry</div>
+              </div>
+              <div class="miro-card miro-sticky-mint" data-key="ms-monitor">
+                <div class="miro-logo" aria-hidden="true"><svg><use href="#ic-monitor"/></svg></div>
+                <div class="miro-card-name">Azure Monitor</div>
+                <div class="miro-card-sub">Diagnostic logs, metrics</div>
+              </div>
+            </div>
+          </div>
+
+          <svg class="miro-overlay" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <defs>
+              <pattern id="dots" patternUnits="userSpaceOnUse" width="3" height="3">
+                <circle cx="1.5" cy="1.5" r="0.6" fill="#a89968"/>
+              </pattern>
+            </defs>
+          </svg>
+        </div>
+
+        <!-- Legend -->
+        <div class="miro-legend">
+          <div class="miro-legend-item"><span class="miro-swatch" style="background: #d4e4f2;"></span>React clients</div>
+          <div class="miro-legend-item"><span class="miro-swatch miro-sticky-yellow"></span>App Service</div>
+          <div class="miro-legend-item"><span class="miro-swatch miro-sticky-pink"></span>Foundry</div>
+          <div class="miro-legend-item"><span class="miro-swatch miro-sticky-blue"></span>Knowledge</div>
+          <div class="miro-legend-item"><span class="miro-swatch miro-sticky-teal"></span>MCPs · ACA + AKS</div>
+          <div class="miro-legend-item"><span class="miro-swatch miro-sticky-snow"></span>Snowflake</div>
+          <div class="miro-legend-item"><span class="miro-swatch miro-sticky-mint"></span>Monitoring</div>
+          <div class="miro-legend-item miro-legend-step"><span class="miro-step">N</span>Numbered flow step</div>
+        </div>
+
+        <!-- Network topology — vNet boundaries and subnet delegation -->
+        <div class="miro-network">
+          <div class="miro-network-head">
+            <span class="miro-network-kicker">Network</span>
+            <span class="miro-network-title">vNet boundaries &amp; subnet delegation</span>
+            <span class="miro-network-meta">single workload spoke · region: eastus2</span>
+          </div>
+
+          <!-- Consumer subscription — separate Azure subscription, peered to workload vNet -->
+          <div class="miro-zone miro-zone-consumer" data-key="net-consumer-sub">
+            <div class="miro-zone-tag">Azure · Consumer subscription</div>
+            <div class="miro-zone-body">
+              <div class="miro-zone-cidr">10.50.0.0/16 &nbsp;·&nbsp; sub: <em>consumer-apps-prod</em></div>
+              <div class="miro-zone-hosts">React SPAs hosted on Static Web Apps / App Service · same tenant, different sub</div>
+            </div>
+          </div>
+
+          <div class="miro-network-arrow miro-network-arrow-peer" aria-hidden="true">↓ &nbsp; vNet peering &middot; private endpoint to App Gateway &nbsp; ↓</div>
+
+          <!-- vNet boundary -->
+          <div class="miro-vnet" data-key="net-vnet">
+            <div class="miro-vnet-tag">
+              <span class="miro-logo-inline" aria-hidden="true"><svg><use href="#ic-appservice"/></svg></span>
+              vnet-wealth-ai-prod &nbsp;·&nbsp; 10.40.0.0/16
+            </div>
+
+            <div class="miro-subnet-grid">
+
+              <div class="miro-subnet" data-key="net-snet-edge">
+                <div class="miro-subnet-tag">snet-edge</div>
+                <div class="miro-subnet-cidr">10.40.0.0/24</div>
+                <div class="miro-subnet-hosts">App Gateway + WAF · Bastion</div>
+              </div>
+
+              <div class="miro-subnet" data-key="net-snet-app">
+                <div class="miro-subnet-tag">snet-appservice</div>
+                <div class="miro-subnet-cidr">10.40.1.0/24</div>
+                <div class="miro-subnet-hosts">App Service vNet integration</div>
+                <div class="miro-subnet-deleg">delegated · Microsoft.Web/serverFarms</div>
+              </div>
+
+              <div class="miro-subnet" data-key="net-snet-pe">
+                <div class="miro-subnet-tag">snet-private-endpoints</div>
+                <div class="miro-subnet-cidr">10.40.2.0/24</div>
+                <div class="miro-subnet-hosts">PE: Foundry · AI Search · Cosmos · Storage · Key Vault</div>
+              </div>
+
+              <div class="miro-subnet" data-key="net-snet-aca">
+                <div class="miro-subnet-tag">snet-aca</div>
+                <div class="miro-subnet-cidr">10.40.4.0/23</div>
+                <div class="miro-subnet-hosts">Container Apps environment · MCPs i–iv</div>
+                <div class="miro-subnet-deleg">delegated · Microsoft.App/environments</div>
+              </div>
+
+              <div class="miro-subnet" data-key="net-snet-aks-nodes">
+                <div class="miro-subnet-tag">snet-aks-nodes</div>
+                <div class="miro-subnet-cidr">10.40.8.0/22</div>
+                <div class="miro-subnet-hosts">AKS node pool · Risk MCP · Snowflake MCP</div>
+              </div>
+
+              <div class="miro-subnet" data-key="net-snet-aks-pods">
+                <div class="miro-subnet-tag">snet-aks-pods</div>
+                <div class="miro-subnet-cidr">10.40.16.0/20</div>
+                <div class="miro-subnet-hosts">AKS pod CIDR (Azure CNI Overlay)</div>
+                <div class="miro-subnet-deleg">delegated · Microsoft.ContainerService/managedClusters</div>
+              </div>
+
+              <div class="miro-subnet" data-key="net-snet-fw">
+                <div class="miro-subnet-tag">AzureFirewallSubnet</div>
+                <div class="miro-subnet-cidr">10.40.32.0/26</div>
+                <div class="miro-subnet-hosts">Egress filtering · Snowflake FQDN allowlist</div>
+              </div>
+
+              <div class="miro-subnet" data-key="net-snet-mgmt">
+                <div class="miro-subnet-tag">snet-mgmt</div>
+                <div class="miro-subnet-cidr">10.40.33.0/24</div>
+                <div class="miro-subnet-hosts">Build agents · jump boxes</div>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="miro-network-arrow" aria-hidden="true">↓ &nbsp; egress via Azure Firewall · OBO-tokened HTTPS &nbsp; ↓</div>
+
+          <!-- External zone -->
+          <div class="miro-zone miro-zone-external" data-key="net-external">
+            <div class="miro-zone-tag">External · Snowflake</div>
+            <div class="miro-zone-body">
+              <div class="miro-zone-cidr">PrivateLink endpoint · *.privatelink.snowflakecomputing.com</div>
+              <div class="miro-zone-hosts">Snowflake account · external OAuth via Entra ID</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Source attribution -->
+        <div class="miro-source">
+          Reference: Microsoft Learn &nbsp;·&nbsp; <em>Basic Microsoft Foundry chat reference architecture</em>
+          <br>
+          <span style="opacity: 0.7;">Azure service icons used for learning and documentation purposes only &mdash; <em>aka.ms/AzureIcons</em></span>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ========================== SIDE PANEL ========================== -->
+  <aside class="panel" id="panel">
+    <div class="panel-empty" id="panel-empty">
+      <div class="ornament">❦</div>
+      <div class="text">Select any node, MCP, or step to read the<br>design notes for that component.</div>
+    </div>
+    <div class="panel-content" id="panel-content"></div>
+  </aside>
+
+</main>
+
+<footer>
+  <div>Foundry × MCP · Wealth Reference</div>
+  <div class="ornament">❦</div>
+  <div>Interactive · v1.0</div>
+</footer>
+
+<script>
+const DETAILS = {
+  // Channels
+
+  // Edge
+
+  // Foundry projects
+
+  // Foundry components
+
+  // Foundry data services
+
+  // Domain MCPs
+
+  // Snowflake
+
+  // Gateway Internals — inbound
+  "gw-in-call": {
+    kicker: "Gateway · Inbound",
+    title: "Tool <em>call</em>",
+    text: "What the gateway receives from Foundry's agent runtime. A structured invocation: tool name, arguments object, the run identifier, and the user's bearer token. <strong>This is the unit of work the entire pipeline operates on.</strong>",
+    meta: { Format: "JSON-RPC 2.0", Source: "Foundry orchestrator" }
+  },
+  "gw-in-context": {
+    kicker: "Gateway · Inbound",
+    title: "Run <em>context</em>",
+    text: "The metadata that travels with every call: which Foundry project, which agent definition, which thread. The pipeline uses this to look up entitlements and to tag telemetry — without it, audit becomes useless.",
+    meta: { Carries: "project, agent, thread, run_id" }
+  },
+  "gw-in-policy": {
+    kicker: "Gateway · Inbound",
+    title: "Policy <em>hints</em>",
+    text: "Pre-computed signals from Foundry: remaining token budget for the run, allowed scope set for this agent, content-safety flags. The gateway treats these as advisory — it still enforces independently — but they let it short-circuit obvious denials early.",
+    meta: { Trust: "Advisory, re-verified downstream" }
+  },
+
+  // Gateway Internals — pipeline
+  "gw-router": {
+    kicker: "Pipeline · Stage 01",
+    title: "Intelligent <em>router</em>",
+    text: "Resolves the abstract tool name (e.g. <code>performance.get_twr</code>) to a concrete MCP endpoint: which domain MCP, which version, which region. <strong>This is what lets you canary new versions of an MCP</strong> — route 5% of traffic to v2, observe, then promote. Without a router, every agent has to know endpoints, and you can never deploy safely.",
+    list: ["Reads target from Domain registry", "Honors version pinning per project", "Region-aware: prefers same-region MCP", "Enables canary, blue-green, and shadow traffic"],
+    meta: { Reads: "Domain registry, Tool registry" }
+  },
+  "gw-validator": {
+    kicker: "Pipeline · Stage 02",
+    title: "Schema <em>validator</em>",
+    text: "Type-checks tool arguments against the registered schema before the call leaves the gateway. <strong>Refuses malformed calls without invoking the MCP.</strong> Models hallucinate argument shapes constantly — this is the layer that catches it cheaply.",
+    list: ["JSON Schema validation per tool", "Custom validators for domain types (account_id format, date ranges)", "Sanitizes string args (length caps, control chars)", "Returns structured error to the agent for retry"],
+    meta: { Reads: "Tool registry", Standard: "JSON Schema 2020-12" }
+  },
+  "gw-cache": {
+    kicker: "Pipeline · Stage 03",
+    title: "Result <em>cache</em>",
+    text: "Caches results of idempotent reads keyed on (tool, args, user). <strong>The user is part of the key</strong> — caching across users would defeat row-level security. TTLs come from the tool registry: aggregate AUM might cache for 5 minutes, transaction lookups for 30 seconds, real-time prices not at all.",
+    list: ["Per-user keys to preserve RLS", "TTLs declared per tool in registry", "Bypassed for write tools and live data", "Cache hits still logged for audit completeness"],
+    meta: { Backing: "Redis / in-memory", "Key shape": "(tool, args_hash, user_oid)" }
+  },
+  "gw-dispatch": {
+    kicker: "Pipeline · Stage 04",
+    title: "Dispatch <em>+ OBO</em>",
+    text: "The call actually leaves the gateway here. The OBO token exchange happens in this stage — the user assertion is presented to Entra, a target-scoped token comes back, and the JSON-RPC call goes out. <strong>This is where Plate II's step v lives.</strong>",
+    list: ["OBO exchange against Entra ID", "Token cache keyed on (user, target, scopes)", "MTLS to MCP endpoints when configured", "Per-tool timeout and retry policy"],
+    meta: { Issues: "Target-scoped access tokens", "See also": "Plate II, step v" }
+  },
+  "gw-aggregator": {
+    kicker: "Pipeline · Stage 05",
+    title: "Response <em>aggregator</em>",
+    text: "Normalizes the response shape before handing it back to the agent: paginates large result sets, merges responses when one logical call fans out to multiple MCPs, redacts fields the user's scope doesn't permit, and writes the result to the cache. <strong>Agents see one response shape regardless of how many MCPs answered.</strong>",
+    list: ["Pagination cursors for large reads", "Fan-in for multi-MCP queries", "Field-level redaction by scope", "Writes through to result cache"],
+    meta: { Pattern: "Adapter + redactor" }
+  },
+
+  // Gateway Internals — registries
+  "gw-tool-reg": {
+    kicker: "Registry · 01",
+    title: "Tool <em>registry</em>",
+    text: "The catalog of every tool the gateway knows about. <strong>This is the source of truth for what agents can do.</strong> One row per tool with: schema, owning MCP, required scopes, cache TTL, idempotency hint, deprecation status, and the human-readable description models see.",
+    list: ["Schema (input + output) per tool", "Required Entra scopes", "Cache TTL and idempotency flag", "Owner team and deprecation lifecycle", "The 'description' field is what the LLM reads — it's product copy, not docs"],
+    meta: { Storage: "Cosmos DB / git-backed", "Update path": "PR + review" }
+  },
+  "gw-domain-reg": {
+    kicker: "Registry · 02",
+    title: "Domain <em>registry</em>",
+    text: "The catalog of MCP servers themselves: where they live, which versions are deployed, what regions they're in, what their app registration is, what their health endpoint is. <strong>The router reads this on every call.</strong> Adding a new MCP to the platform is a registry entry, not a code change.",
+    list: ["Endpoint URL per (server, version, region)", "Entra app registration / audience", "Health probe path", "Maintenance windows and version pinning"],
+    meta: { Storage: "Cosmos DB", "Update path": "Platform team" }
+  },
+  "gw-policy-reg": {
+    kicker: "Registry · 03",
+    title: "Policy <em>&amp; entitlements</em>",
+    text: "The matrix that says which Foundry project can call which tool with which scope. <strong>This is what stops the Client Experience project from ever reaching the Transaction MCP</strong> — not a prompt, not a runtime check, a policy entry that simply doesn't exist.",
+    list: ["Project × tool × scope matrix", "Per-tool budget caps", "Blast-radius rules (max args size, max rate)", "Reviewed by compliance, not engineering"],
+    meta: { Pattern: "Allowlist (default deny)", Owner: "Platform + Compliance" }
+  },
+
+  // Gateway Internals — operations
+  "gw-secrets": {
+    kicker: "Operations · 01",
+    title: "Secret <em>manager</em>",
+    text: "References to Key Vault for any secret the gateway needs: its own client credentials for OBO, MCP-side mTLS certs, signing keys for outbound headers. <strong>The gateway never holds plaintext secrets in config</strong> — only Key Vault references resolved at runtime through its managed identity.",
+    list: ["Key Vault references, never inline secrets", "Rotation handled by Key Vault, picked up at next refresh", "MI bindings for cross-resource access", "Certificate auto-renewal for mTLS"],
+    meta: { Backing: "Azure Key Vault", Auth: "Managed identity" }
+  },
+  "gw-health": {
+    kicker: "Operations · 02",
+    title: "Health <em>monitor</em>",
+    text: "Continuously probes every registered MCP, tracks latency and error rates per tool, and trips circuit breakers when an MCP misbehaves. <strong>When a circuit is open, the router skips that target instead of waiting for a timeout</strong> — agents fail fast, not slow.",
+    list: ["Active probes (every 30s) and passive observation", "Per-tool circuit breaker state", "SLO tracking with burn-rate alerts", "Feeds router for traffic shaping"],
+    meta: { Pattern: "Circuit breaker + SLO" }
+  },
+  "gw-telemetry": {
+    kicker: "Operations · 03",
+    title: "Telemetry <em>&amp; audit</em>",
+    text: "Every stage emits a structured event tagged with run_id, user, project, agent, tool, latency, result hash. <strong>Two sinks</strong>: an operational store for tracing and dashboards, and an immutable audit log for compliance. Eval hooks read from here to score agent behavior offline.",
+    list: ["OpenTelemetry traces to App Insights", "Structured tool-call log to immutable storage", "Hooks for eval pipeline (sampled)", "Joinable to Snowflake by run_id"],
+    meta: { Sinks: "App Insights + audit blob (WORM)" }
+  },
+
+  // Gateway Internals — outbound
+  "gw-out-call": {
+    kicker: "Outbound · 01",
+    title: "JSON-RPC <em>call</em>",
+    text: "What leaves the gateway: a JSON-RPC request over HTTPS to the resolved MCP endpoint, carrying the OBO-scoped token, a correlation header with the run_id, and an idempotency key for safe retries.",
+    meta: { Headers: "Authorization, X-Run-Id, Idempotency-Key" }
+  },
+  "gw-out-result": {
+    kicker: "Outbound · 02",
+    title: "Result <em>back</em>",
+    text: "What returns to the agent: a normalized response shape, pagination cursor if any, and a result hash that ends up in the audit log. The cache stores it (if eligible) before it's handed to the orchestrator.",
+    meta: { Shape: "Normalized per response schema" }
+  },
+  "gw-out-error": {
+    kicker: "Outbound · 03",
+    title: "Error <em>path</em>",
+    text: "Not all calls succeed. The gateway distinguishes <strong>transient</strong> (retry with backoff), <strong>permanent</strong> (return structured error to agent so it can adapt), and <strong>circuit-broken</strong> (skip target, try fallback or fail fast). The agent sees a typed error, not a stack trace.",
+    list: ["Transient: retry with jittered backoff", "Permanent: return typed error to agent", "Circuit-broken: skip and try fallback if registered", "All errors logged with full context"],
+    meta: { Pattern: "Retry + circuit breaker + typed errors" }
+  },
+
+  // MS Reference architecture cards
+  "ms-client-esg": {
+    kicker: "React Client · 01",
+    title: "ESG <em>Buddy</em>",
+    text: "React SPA used by advisors for ESG-aware portfolio review and meeting prep. <strong>Hosted in the consumer subscription</strong>, reaches the workload via vNet peering. Authenticates via MSAL React, calls the App backend with the user's Entra access token. Most-privileged of the human-facing clients — needs PII and transaction reads to do its job.",
+    list: ["MSAL React for sign-in", "Calls App backend over private peering", "Renders streaming responses from agent runs"],
+    meta: { Stack: "React + MSAL", Hosting: "consumer-apps-prod sub", "User type": "Advisor", "Backing project": "ESG Buddy" }
+  },
+  "ms-client-chat": {
+    kicker: "React Client · 02",
+    title: "Client <em>Chatbot</em>",
+    text: "React app embedded in the client portal. <strong>Hosted in the consumer subscription</strong>, reaches the workload via vNet peering — not over the public internet. Read-only behavior: balances, holdings, performance summaries scoped to the signed-in client's accounts. <strong>Strict surface area</strong>: no transaction tools, no PII fields beyond display name.",
+    list: ["MSAL React with Entra External ID for end-client sign-in", "Hardened content-safety profile", "Output PII redaction always-on at the agent level", "Reaches App backend via private peering, not public internet"],
+    meta: { Stack: "React + MSAL", Hosting: "consumer-apps-prod sub", "User type": "End client", "Backing project": "Client Experience" }
+  },
+  "ms-client-perf": {
+    kicker: "React Client · 03",
+    title: "Performance <em>Insight</em>",
+    text: "React app for the research and analytics team. <strong>Hosted in the consumer subscription</strong>, reaches the workload via vNet peering. Heavy on factor decomposition, attribution, and performance forensics. No client-level PII — works with aggregated and anonymized identifiers.",
+    list: ["MSAL React, internal SSO", "Higher token budgets per run", "Outputs typically exported to OneNote / SharePoint"],
+    meta: { Stack: "React + MSAL", Hosting: "consumer-apps-prod sub", "User type": "Analyst", "Backing project": "Performance Insight" }
+  },
+  "ms-client-batch": {
+    kicker: "Scheduled Workload",
+    title: "Batch <em>Reports</em>",
+    text: "Not a React client — a <strong>scheduled, headless workload</strong>. Logic Apps or Functions trigger long-running agent runs that produce nightly performance packs, monthly attribution reports, and ad-hoc regulatory exports. Calls the Persistent Agents SDK directly, bypassing App Service.",
+    list: ["Triggered by timer or event", "Runs as service principal + tagged user", "Long-running, resumable runs", "Output to secured blob, not chat"],
+    meta: { "Trigger source": "Logic Apps / Azure Functions", Identity: "Service principal + user tag", Pattern: "Async, scheduled" }
+  },
+  "ms-easyauth": {
+    kicker: "Step 2 · App Service",
+    title: "Easy <em>Auth</em>",
+    text: "App Service's built-in authentication. Confirms the user is signed in via Microsoft Entra ID before any request reaches the chat UI code. <strong>The user's identity becomes the identity that flows downstream.</strong>",
+    meta: { Step: "2", Provider: "Microsoft Entra ID", Component: "App Service Authentication" }
+  },
+  "ms-chatui": {
+    kicker: "Step 3 · App Service",
+    title: "App backend <em>&amp; API</em>",
+    text: "Application code deployed to App Service. <strong>Hosts all four React apps' backends.</strong> Receives user requests, validates the Entra token, and uses its <strong>managed identity</strong> to call Foundry's Agent Service via the Azure AI Persistent Agents SDK.",
+    list: ["Multi-tenant: routes per client app", "Authenticates to Agent Service via managed identity", "Required role: Azure AI User on the Foundry account", "Streams responses back to React clients"],
+    meta: { Step: "3", SDK: "Azure AI Persistent Agents", Auth: "Managed identity" }
+  },
+  "ms-mcp-gateway": {
+    kicker: "Foundry Project",
+    title: "MCP <em>gateway</em>",
+    text: "The chokepoint that brokers every tool call from Agent Service to the domain MCP fleet. Discovery, scope enforcement, OBO token exchange, request/response logging, retry policy. <strong>See Plate III for the component-level view.</strong>",
+    list: ["Handles OBO token exchange before each tool call", "Pipeline: router → validator → cache → dispatch → aggregator", "All tool calls audited at this layer"],
+    reads: {
+      from: ["Tool registry", "Domain registry", "Policy &amp; entitlements registry", "Entra ID (OBO exchange)"],
+      by:   ["Agent Service", "Domain MCP fleet"]
+    },
+    meta: { "See also": "Plate III · Gateway Internals" }
+  },
+  "ms-mcp-perf": {
+    kicker: "Domain MCP · 01 · Container Apps",
+    title: "Performance <em>MCP</em>",
+    text: "Time-weighted return, IRR, benchmark comparisons. Read-only. Container App in <code>cae-wealth-ai-prod</code>. Receives OBO-scoped tokens from the gateway, queries Snowflake via the Snowflake MCP.",
+    meta: { Hosting: "Azure Container Apps", Tools: "12 read methods", Source: "Snowflake (perf data product)" }
+  },
+  "ms-mcp-aum": {
+    kicker: "Domain MCP · 02 · Container Apps",
+    title: "AUM <em>MCP</em>",
+    text: "Balances, flows, household aggregations. Highest request volume of the fleet. 5-minute cache TTL on aggregates to absorb burst traffic from the chatbot.",
+    meta: { Hosting: "Azure Container Apps", Tools: "9 read methods", Cache: "5-min TTL" }
+  },
+  "ms-mcp-client": {
+    kicker: "Domain MCP · 03 · Container Apps",
+    title: "Client Info <em>MCP</em>",
+    text: "Profile, household structure, KYC fields. <strong>Most sensitive MCP.</strong> Two scope tiers: <code>read_basic</code> (display name, household) and <code>read_pii</code> (DOB, SSN, address). Client Chatbot only gets the first.",
+    meta: { Hosting: "Azure Container Apps", Tools: "7 methods", Scopes: "read_basic, read_pii" }
+  },
+  "ms-mcp-tx": {
+    kicker: "Domain MCP · 04 · Container Apps",
+    title: "Transaction <em>MCP</em>",
+    text: "Trades, cash flows, settlements. Read-only — write paths go through the existing OMS. <strong>Never reachable from the Client Chatbot project</strong> (enforced at the policy registry, not the prompt).",
+    meta: { Hosting: "Azure Container Apps", Tools: "11 read methods", Writes: "Out of scope" }
+  },
+  "ms-mcp-risk": {
+    kicker: "Domain MCP · 05 · Kubernetes",
+    title: "Risk &amp; Attribution <em>MCP</em>",
+    text: "VaR, factor attribution, stress tests. Bundled because they share factor models and exposure tables. <strong>Hosted on AKS rather than Container Apps</strong> — needs custom networking for the legacy risk-engine sidecar and benefits from AKS's flexibility on node sizing for compute-heavy workloads.",
+    list: ["AKS deployment with dedicated node pool", "Sidecar pattern for legacy risk engine", "GPU-eligible node pool for stress test scenarios", "Larger memory footprint than other MCPs"],
+    meta: { Hosting: "Azure Kubernetes Service", Tools: "14 methods", "Used by": "ESG Buddy, Performance Insight" }
+  },
+  "ms-mcp-snow": {
+    kicker: "Connection Broker · Kubernetes",
+    title: "Snowflake <em>MCP</em>",
+    text: "<strong>Connection broker, not a passthrough.</strong> Domain MCPs call this to get scoped Snowflake sessions — never raw SQL from agents. Owns connection pooling, warehouse routing, query timeouts, and cost guards. Runs on AKS so it can hold long-lived warehouse connections and manage pool eviction precisely.",
+    list: ["Connection pool with per-user session affinity", "Routes queries to per-domain warehouses", "Enforces query budgets and timeouts", "Translates Entra OBO tokens to Snowflake external OAuth"],
+    meta: { Hosting: "Azure Kubernetes Service", Pattern: "Broker (no raw SQL)", "Auth in": "Entra OBO", "Auth out": "Snowflake external OAuth" }
+  },
+  "ms-snow-marts": {
+    kicker: "Snowflake · Storage",
+    title: "Data products <em>/ Vault domains</em>",
+    text: "Domain-aligned data products, one per MCP. Built on Data Vault domain models in raw / business-vault layers, exposed to consumers through curated information-mart views. The data engineering team owns the contract between source systems and the agent layer &mdash; AI engineers don't debug stale dimensions or late-arriving trades.",
+    list: ["One data product per domain (perf, aum, client, tx, risk)", "Vault layers underneath: raw vault → business vault → information mart", "Versioned contracts; breaking changes go through change review", "Freshness SLAs published per product"],
+    meta: { Layout: "Product per domain", Modeling: "Data Vault 2.0", Owner: "Data engineering" }
+  },
+  "ms-snow-wh": {
+    kicker: "Snowflake · Compute",
+    title: "Virtual <em>warehouses</em>",
+    text: "Per-domain warehouses for blast-radius control and cost attribution. Risk gets the largest (factor math is heavy); Client Info the smallest (lookups are cheap). Auto-suspend keeps idle cost near zero.",
+    list: ["WH_PERFORMANCE: Medium", "WH_AUM: Small (high concurrency)", "WH_CLIENT: XS", "WH_TRANSACTION: Small", "WH_RISK: Large (compute-heavy)"],
+    meta: { Sizing: "XS to L per domain", "Auto-suspend": "60s idle" }
+  },
+  "ms-snow-rls": {
+    kicker: "Snowflake · Security",
+    title: "Row-access <em>policies</em>",
+    text: "<strong>The actual entitlement enforcement point.</strong> Policies on <code>holdings</code>, <code>transactions</code>, <code>accounts</code> reference <code>CURRENT_USER()</code> to filter advisors to their book and clients to their own accounts. If identity ever broke upstream, query returns empty — the safe failure mode. See Plate II for the full token chain.",
+    meta: { Mechanism: "Row-access policy", Reference: "CURRENT_USER()", "See also": "Plate II · OBO flow" }
+  },
+  "ms-agent": {
+    kicker: "Step 4–5 · Foundry · Agent Service",
+    title: "Foundry Agent <em>Service</em>",
+    text: "The orchestration capability hosted inside the Foundry project. Manages chat threads, dispatches tool calls, enforces content safety, and integrates with identity, networking, and observability. <strong>Codeless and nondeterministic</strong> — behavior emerges from the system prompt, sampling parameters, and connected knowledge sources.",
+    list: ["Click sub-components below for detail", "Authenticates to AI Search via the project MI + connection", "Surfaces telemetry to App Insights", "In this basic ref, dependencies (Cosmos DB, Storage, AI Search for chunking) are Microsoft-hosted"],
+    reads: {
+      from: ["System prompt", "Connections", "Model deployment", "Content safety filters"],
+      by:   ["App backend (Persistent Agents SDK)", "Batch jobs"]
+    },
+    meta: { Steps: "4–5", Hosting: "Microsoft-managed in Foundry" }
+  },
+  "ms-model": {
+    kicker: "Step 5 · Foundry · Model deployment",
+    title: "Model <em>deployment</em>",
+    text: "An Azure OpenAI model deployed inside the Foundry project. The agent service sends the user's prompt plus retrieved grounding data and receives the completion. <strong>Global Standard</strong> deployment for this learning topology — pay-as-you-go with a fixed quota.",
+    list: ["Global Standard for POC", "DefaultV2 content filter", "For production: Data Zone Provisioned for residency", "Multiple deployments per project supported"],
+    reads: {
+      from: ["Foundry Models catalog", "Content filter (DefaultV2)"],
+      by:   ["Agent Service"]
+    },
+    meta: { Step: "5", Deployment: "Global Standard", Filter: "DefaultV2" }
+  },
+  "ms-search": {
+    kicker: "Step 4 · External knowledge",
+    title: "Azure AI <em>Search</em>",
+    text: "The grounding-data store for the RAG pattern. <strong>Sits outside Foundry</strong> as a separate Azure resource — Foundry reaches it via a project-scoped connection. The agent extracts a query from the user's prompt, retrieves relevant indexed content, and the agent then includes it in the model prompt.",
+    list: ["External to Foundry; project connects via MI", "Supports full-text, semantic, vector, hybrid", "Basic tier here (no zone redundancy)", "Production: Standard tier+ with 3+ replicas"],
+    meta: { Step: "4", "Auth from Foundry": "Project MI + connection", Pattern: "RAG" }
+  },
+  "ms-appins": {
+    kicker: "Step 6 · Monitoring",
+    title: "Application <em>Insights</em>",
+    text: "Logs the original request to App Service and every agent interaction. <strong>Connect Application Insights to your Foundry project</strong> to enable token-usage monitoring, request-response telemetry, latency tracking, and response-quality signals.",
+    list: ["Token usage: prompt, completion, total", "Request-response with latency and exceptions", "OpenTelemetry traces for distributed diagnostics"],
+    meta: { Step: "6", Integration: "Foundry → App Insights link" }
+  },
+  "ms-monitor": {
+    kicker: "Step 6 · Monitoring",
+    title: "Azure <em>Monitor</em>",
+    text: "Captures diagnostic logs across the stack. App Service emits <code>AppServiceHTTPLogs</code>, <code>AppServiceConsoleLogs</code>, <code>AppServiceAppLogs</code>, and <code>AppServicePlatformLogs</code>; Foundry emits <code>RequestResponse</code>. Inventory and prune to value-add sources before production.",
+    meta: { Step: "6", "App Service logs": "HTTP, Console, App, Platform", "Foundry logs": "RequestResponse" }
+  },
+
+  // Network topology
+  "net-consumer-sub": {
+    kicker: "Network · Consumer subscription",
+    title: "Consumer <em>subscription</em>",
+    text: "<strong>The React SPAs are not on the public internet.</strong> They live in a separate Azure subscription within the same tenant — typically owned by a different team or business unit. Hosted on Static Web Apps or App Service in their own vNet, peered to the workload vNet for private connectivity to the App backend.",
+    list: ["Same Azure tenant, different subscription (RBAC, policy, budget boundary)", "Connectivity: vNet peering or Private Link service to App Gateway", "Sign-in still goes through Entra ID — single tenant, same identities", "Ingress to workload uses private IPs only — no public hop"],
+    meta: { Subscription: "consumer-apps-prod", "Address space": "10.50.0.0/16", Tenant: "Same tenant as workload", "Connectivity": "vNet peering / Private Link" }
+  },
+  "net-vnet": {
+    kicker: "Network · vNet",
+    title: "<em>vnet-wealth-ai-prod</em>",
+    text: "The workload spoke vNet. Single region (eastus2). <strong>Two peering relationships</strong>: northbound to the consumer-subscription vNet (where the React clients live), and to the hub vNet (not shown) for shared services like DNS forwarders, Bastion, and Firewall. <code>10.40.0.0/16</code> gives ~65k addresses — generous headroom for future subnets.",
+    list: ["Hub-spoke topology: this is the workload spoke", "Peering: ↑ consumer-apps vNet (10.50.0.0/16), → hub vNet", "Private DNS zones for each PaaS service linked", "NSGs at every subnet, default-deny outbound except via Firewall", "Route table forces 0.0.0.0/0 through Azure Firewall"],
+    meta: { Address: "10.40.0.0/16", Region: "eastus2", Topology: "Hub-spoke (workload spoke)", "Peerings": "consumer-apps, hub" }
+  },
+  "net-snet-edge": {
+    kicker: "Subnet · Edge",
+    title: "<em>snet-edge</em>",
+    text: "Holds the Application Gateway with WAF v2. <strong>Internal-only frontend</strong> — App Gateway has a private IP, not a public one. Receives traffic from the consumer-subscription vNet over peering. Bastion lives here too for jump-box access without exposing public IPs on management hosts.",
+    list: ["App Gateway frontend: private IP only (no public IP)", "Ingress source: peered consumer-subscription vNet", "WAF rules still apply (OWASP + custom)", "Bastion for break-glass admin access"],
+    meta: { CIDR: "10.40.0.0/24", Hosts: "App Gateway v2 + WAF, Azure Bastion", "Frontend": "Private (internal listener)" }
+  },
+  "net-snet-app": {
+    kicker: "Subnet · App Service",
+    title: "<em>snet-appservice</em>",
+    text: "Delegated subnet for App Service vNet integration. The App backend hosting all React clients runs from here — outbound traffic to Foundry, AI Search, and Cosmos DB flows through this subnet's effective routes (Firewall for internet, private endpoints for PaaS).",
+    list: ["Delegated to <code>Microsoft.Web/serverFarms</code>", "Required for App Service Premium SKU vNet integration", "Outbound to PaaS via Private DNS resolution → private endpoints"],
+    meta: { CIDR: "10.40.1.0/24", Delegation: "Microsoft.Web/serverFarms", "Public access": "Disabled on App Service" }
+  },
+  "net-snet-pe": {
+    kicker: "Subnet · Private Endpoints",
+    title: "<em>snet-private-endpoints</em>",
+    text: "Hosts the private endpoints for every Azure PaaS dependency. <strong>One PE per service</strong>: Foundry account, AI Search, Cosmos DB, Storage, Key Vault. Without these, traffic from the workload to these services would either fail or traverse the public internet.",
+    list: ["PE: Microsoft Foundry account", "PE: Azure AI Search", "PE: Cosmos DB", "PE: Storage account (agent artifacts)", "PE: Key Vault"],
+    meta: { CIDR: "10.40.2.0/24", "PE count": "5", "Private DNS": "linked per service" }
+  },
+  "net-snet-aca": {
+    kicker: "Subnet · Container Apps",
+    title: "<em>snet-aca</em>",
+    text: "Delegated subnet for the Container Apps environment (<code>cae-wealth-ai-prod</code>). All four ACA-hosted MCPs run inside this subnet's address space. <strong>/23 is the minimum</strong> — ACA reserves a chunk for system pods and needs room to scale revisions.",
+    list: ["Delegated to <code>Microsoft.App/environments</code>", "Hosts: Performance, AUM, Client Info, Transaction MCPs", "Minimum /23 required by Container Apps", "Internal-only environment (no external ingress)"],
+    meta: { CIDR: "10.40.4.0/23", Delegation: "Microsoft.App/environments", "Ingress mode": "Internal" }
+  },
+  "net-snet-aks-nodes": {
+    kicker: "Subnet · AKS Nodes",
+    title: "<em>snet-aks-nodes</em>",
+    text: "Holds the AKS node pool VMs. Risk &amp; Attribution MCP and the Snowflake MCP both run as pods on this cluster. <strong>/22 sized for node-count growth</strong> — Azure CNI Overlay means pods don't consume node-subnet IPs.",
+    list: ["Node IPs only (not pod IPs)", "Azure CNI Overlay enabled — pods get IPs from snet-aks-pods", "Sized for ~250 nodes", "System and user node pools both rooted here"],
+    meta: { CIDR: "10.40.8.0/22", "Node count headroom": "~250", "CNI mode": "Overlay" }
+  },
+  "net-snet-aks-pods": {
+    kicker: "Subnet · AKS Pods",
+    title: "<em>snet-aks-pods</em>",
+    text: "The pod CIDR for Azure CNI Overlay. Pods get IPs from this range without consuming node-subnet addresses. <strong>Delegated to AKS</strong>; the cluster manages the IPAM internally. <em>/20 supports ~4k pods.</em>",
+    meta: { CIDR: "10.40.16.0/20", Delegation: "Microsoft.ContainerService/managedClusters", "Pod headroom": "~4k" }
+  },
+  "net-snet-fw": {
+    kicker: "Subnet · Azure Firewall",
+    title: "<em>AzureFirewallSubnet</em>",
+    text: "Required name (Azure Firewall checks for this exact subnet name). All outbound traffic from the workload to the internet — including Snowflake's PrivateLink endpoint resolution — routes through this subnet's Firewall instance. <strong>FQDN allowlist for Snowflake</strong> is the highest-leverage rule here.",
+    list: ["Required subnet name: <code>AzureFirewallSubnet</code>", "FQDN rule: <code>*.snowflakecomputing.com</code>", "Application rules over network rules where possible", "All denied traffic logged to App Insights"],
+    meta: { CIDR: "10.40.32.0/26", "Required name": "AzureFirewallSubnet", "Min size": "/26" }
+  },
+  "net-snet-mgmt": {
+    kicker: "Subnet · Management",
+    title: "<em>snet-mgmt</em>",
+    text: "Build agents and jump boxes. <strong>Self-hosted GitHub Actions runners</strong> live here so deployment pipelines can reach private endpoints; jump boxes enable break-glass access via Bastion.",
+    meta: { CIDR: "10.40.33.0/24", Hosts: "GitHub runners, jump boxes" }
+  },
+  "net-external": {
+    kicker: "Network · External",
+    title: "<em>Snowflake</em> (external)",
+    text: "Snowflake is reached via <strong>PrivateLink</strong> endpoints — the FQDN <code>*.privatelink.snowflakecomputing.com</code> resolves to a private IP inside the vNet, not over the public internet. Authentication: external OAuth federated to Entra ID, threading the user identity all the way through (see Plate II).",
+    list: ["PrivateLink endpoint registered with Snowflake account", "Private DNS zone: <code>privatelink.snowflakecomputing.com</code>", "External OAuth → Entra ID for user identity propagation", "Outbound NAT not used; PE bypasses public internet entirely"],
+    meta: { Connectivity: "PrivateLink", "DNS zone": "privatelink.snowflakecomputing.com", Auth: "External OAuth via Entra ID" }
+  },
+
+  // ============ Codegen pipeline (Plate IV) ============
+
+  // Inputs
+  "cg-text": {
+    kicker: "Input · 01",
+    title: "Text <em>spec</em>",
+    text: "The most direct input shape: a written requirement document. Markdown, Word, or pulled from Confluence. <strong>Parsed into a unified requirement model</strong> with extracted entities (data fields, calculations, business rules, acceptance criteria) so downstream stages don't care about the source format.",
+    list: ["Markdown, .docx, Confluence export, plain text", "Heading structure preserved as section context", "Code blocks treated as concrete examples, not prose", "Extracted into typed requirement objects"],
+    meta: { Formats: "md, docx, html, txt", Output: "Unified requirement model" }
+  },
+  "cg-excel": {
+    kicker: "Input · 02",
+    title: "Excel <em>parsing</em>",
+    text: "Spreadsheets carry the most underrated specifications &mdash; column headers, formulas, and macros encode business logic that prose specs gloss over. <strong>Parses cells, named ranges, formulas, and VBA</strong>; reconstructs the calculation graph so the codegen step can replicate the logic in code.",
+    list: ["Cell values + formulas (precedence preserved)", "Named ranges as identifiers", "VBA / macro extraction and translation", "Pivot definitions as group-by intent", "Multi-sheet relationships"],
+    meta: { Library: "openpyxl + custom VBA parser", Output: "Calculation graph + intent" }
+  },
+  "cg-ocr": {
+    kicker: "Input · 03",
+    title: "Screenshot <em>OCR</em>",
+    text: "UI mockups, whiteboard photos, and screenshots from existing systems. Two passes: <strong>OCR for text content</strong>, then a <strong>vision model for layout intent</strong> (this is a button, this is a table, this is a form). Layout becomes constraints; text becomes labels and copy.",
+    list: ["OCR engine for raw text extraction", "Vision model for layout segmentation", "Output: structured UI tree, not bitmap", "Confidence scores per element, low-confidence flagged for human review"],
+    meta: { OCR: "Document Intelligence", Vision: "GPT-4 vision class", Output: "Structured UI spec" }
+  },
+  "cg-query": {
+    kicker: "Input · 04",
+    title: "User <em>queries</em>",
+    text: "The conversational entry point &mdash; freeform asks via chat. Lower context than a written spec, so the planner has to do more work to disambiguate. <strong>Triggers clarification rounds</strong> when intent is ambiguous; otherwise normalizes into the same requirement model as the structured inputs.",
+    list: ["Freeform natural language", "Clarification loop when ambiguous", "Anchored to user identity for entitlement scoping", "May reference prior conversation context"],
+    meta: { Channel: "Chat interface", "Disambiguation": "Multi-turn clarification" }
+  },
+
+  // Plan
+  "cg-checkpoints": {
+    kicker: "Plan · Checkpoints",
+    title: "<em>Checkpoints</em>",
+    text: "Resumable milestones. Every stage of the pipeline writes a checkpoint &mdash; requirement parse complete, plan generated, story N code passing, governance cleared. <strong>If the run fails at any point, it resumes from the last checkpoint</strong> rather than starting over. Critical for long agent runs that span many tool calls and minutes of compute.",
+    list: ["Snapshot the full agent state, not just the output", "Idempotent: re-running from a checkpoint produces the same result", "Stored alongside the run for audit", "Used by the orchestrator to enable cancel + resume"],
+    meta: { Storage: "Persistent run state", Granularity: "Per stage + per story" }
+  },
+  "cg-features": {
+    kicker: "Plan · Features &amp; stories",
+    title: "Features <em>&amp; stories</em>",
+    text: "Decomposition of the requirement into discrete work items, each with its own acceptance criteria. <strong>Each story enters the codegen loop independently</strong> &mdash; this is what makes the pipeline parallelizable and what limits the blast radius of a single failed generation.",
+    list: ["Story = smallest independently-shippable change", "Acceptance criteria become the test contract", "Dependency graph between stories preserved", "Stories can be marked 'human review required' to gate the loop"],
+    meta: { Granularity: "Story-level", "Output format": "Issue tracker compatible" }
+  },
+
+  // Codegen loop stages
+  "cg-plan": {
+    kicker: "Loop · i · plan()",
+    title: "<em>plan()</em>",
+    text: "First step inside the loop, run per story. <strong>Decides the approach before writing any code</strong>: which files to touch, what data shapes, which existing utilities to reuse, where the test boundary lives. The output is a structured plan, not prose &mdash; subsequent stages consume it as input.",
+    meta: { Stage: "i", Output: "Structured plan", "Re-run on": "repair iterations" }
+  },
+  "cg-schema": {
+    kicker: "Loop · ii · schema retrieval",
+    title: "Get live <em>schema</em>",
+    text: "<strong>Live</strong> retrieval, not cached. Queries <code>INFORMATION_SCHEMA</code> on the target database (or the equivalent metadata endpoint for non-SQL sources) so the generated code is grounded in what's actually deployed, not what training data remembers. <strong>This is what stops the model from hallucinating column names.</strong>",
+    list: ["INFORMATION_SCHEMA for SQL targets", "OpenAPI / GraphQL introspection for APIs", "Metadata cached only within a single run", "Stale-schema detection between runs"],
+    meta: { Stage: "ii", Source: "Live target metadata", "Cache scope": "Per-run only" }
+  },
+  "cg-write": {
+    kicker: "Loop · iii · write_code()",
+    title: "<em>write_code()</em>",
+    text: "Generates source files and test files together. <strong>Tests written first or alongside</strong> &mdash; the tests are the contract the code has to satisfy. Output is a multi-file diff against the working tree, not free-floating snippets.",
+    list: ["Files + tests in the same step", "Diff against the working tree", "Honors the project's existing style and structure", "Comments mark generated regions"],
+    meta: { Stage: "iii", Output: "Multi-file diff" }
+  },
+  "cg-test": {
+    kicker: "Loop · iv · run_tests()",
+    title: "<em>run_tests()</em>",
+    text: "Executes the test suite in a sandboxed environment. <strong>Captures stdout, stderr, exit codes, and any artifacts</strong> (coverage reports, failure traces). Returns a structured result that the next stage can reason over &mdash; not just a pass/fail bit.",
+    list: ["Sandboxed execution (container per run)", "Captures stdout, stderr, exit codes, coverage", "Times out long-running tests", "Distinguishes test failures from infrastructure failures"],
+    meta: { Stage: "iv", Sandbox: "Per-run container", Output: "Structured test result" }
+  },
+  "cg-analyze": {
+    kicker: "Loop · v · analyze_errors()",
+    title: "<em>analyze_errors()</em>",
+    text: "When tests fail, this stage <strong>diagnoses why</strong>. Reads the failure traces, reconciles them with the code that was just written, and produces a structured root-cause hypothesis. The hypothesis is what the repair stage uses to decide whether to patch the code, the test, or escalate.",
+    list: ["Root-cause hypothesis with confidence", "Distinguishes: code bug, test bug, env issue, spec gap", "Suggests minimal patch or escalation", "Tracks recurring patterns across iterations"],
+    meta: { Stage: "v", Output: "Structured diagnosis", "Escalation": "if confidence low" }
+  },
+  "cg-repair": {
+    kicker: "Loop · vi · repair",
+    title: "<em>Repair</em> &amp; retry",
+    text: "Applies the patch from analyze_errors and loops back to <code>run_tests()</code>. <strong>Bounded by max attempts</strong> &mdash; usually 3 to 5. After the cap, the loop exits with a structured failure report rather than retrying forever. <strong>The bound is what stops the agent from burning unbounded tokens on an unsolvable problem.</strong>",
+    list: ["Max N attempts (configurable, default 5)", "Backs off if the same error recurs twice", "Each attempt is its own checkpoint", "On exhaustion: fail loudly with full trace, no silent fallback"],
+    meta: { Stage: "vi", "Max attempts": "5 (default)", Termination: "Pass · cap reached · oscillation detected" }
+  },
+
+  // Governance
+  "cg-governance": {
+    kicker: "Cross-cutting · Governance",
+    title: "<em>Governance</em> checks",
+    text: "Runs on <strong>every iteration of the loop</strong>, not just at the end. PII detection, license scanning, secret scanning, style and lint checks, dependency policy. Failures here are treated like test failures: they feed analyze_errors and trigger a repair attempt rather than just blocking the PR at the end.",
+    list: ["PII detection: refuse code that hardcodes personal data", "License scan: reject incompatible OSS deps", "Secret scan: refuse hardcoded keys, tokens, connection strings", "Style &amp; lint: project-specific rules", "Dependency policy: allowlist + CVE check"],
+    meta: { Cadence: "Every loop iteration", Failure: "Treated as test failure (feeds repair)" }
+  },
+
+  // QA
+  "cg-qa-spec": {
+    kicker: "QA · 01",
+    title: "Spec <em>conformance</em>",
+    text: "Independent agent that reads the original requirement and the generated code and asks: <strong>does this actually do what was asked?</strong> Different from running tests &mdash; tests check that code does what its tests say; spec conformance checks that the tests express the right thing.",
+    meta: { Mode: "Independent agent", "Reads": "Original requirement + final code" }
+  },
+  "cg-qa-behavior": {
+    kicker: "QA · 02",
+    title: "Behavior <em>validation</em>",
+    text: "Property-based tests and edge-case generation that the codegen agent didn't write itself. <strong>The codegen agent and the QA agent should not share prompts</strong> &mdash; if they did, they'd share blind spots.",
+    meta: { Approach: "Property-based + fuzz + edge-case", "Independence": "Separate prompt + model config" }
+  },
+  "cg-qa-regression": {
+    kicker: "QA · 03",
+    title: "Regression <em>suite</em>",
+    text: "Runs the full existing test suite to make sure the change didn't break anything else. <strong>Cheap to run, expensive to skip.</strong> Failures here are non-negotiable &mdash; the PR cannot proceed even if the new feature works perfectly.",
+    meta: { Scope: "All existing tests", Gate: "Hard block on failure" }
+  },
+
+  // Outputs
+  "cg-out-html": {
+    kicker: "Output · 01",
+    title: "HTML <em>report</em>",
+    text: "Human-readable summary of the run: what was requested, what was generated, which tests passed, governance findings, eval scores, and a diff view of the changes. <strong>Designed to be skimmable</strong> &mdash; reviewers shouldn't need to read every file to know whether to approve.",
+    meta: { Audience: "Human reviewer", Includes: "Summary · diff · evals · governance" }
+  },
+  "cg-out-data": {
+    kicker: "Output · 02",
+    title: "Table <em>/ JSON</em>",
+    text: "Structured payload for downstream automation. The same content as the HTML report but machine-consumable &mdash; lets you feed run results into dashboards, FinOps systems, or compliance tracking without scraping HTML.",
+    meta: { Format: "JSON", "Schema": "Versioned, semver-tracked" }
+  },
+  "cg-out-pr": {
+    kicker: "Output · 03",
+    title: "PR <em>generator</em>",
+    text: "Final stage. Creates a branch, commits the changes (one logical commit per story when possible), writes a PR description that links back to the requirement and the run report, and assigns reviewers based on the touched code's CODEOWNERS.",
+    list: ["Branch named after the originating requirement ID", "Commits grouped by story for clean review", "PR description: linked requirement + run report + governance summary", "Reviewers auto-assigned via CODEOWNERS", "Draft state until QA agents pass"],
+    meta: { Provider: "GitHub / Azure Repos", "Commit grouping": "Per story", "Review routing": "CODEOWNERS" }
+  },
+
+  // MS Reference — Foundry internal components
+  "ms-foundry-account": {
+    kicker: "Foundry · Account",
+    title: "Foundry <em>account</em>",
+    text: "The top-level Azure resource (<code>Microsoft.CognitiveServices</code> namespace). Holds account-scoped governance: model deployments, network settings, content safety configuration. <strong>A single account can contain multiple projects.</strong>",
+    list: ["Provider: Microsoft.CognitiveServices", "Scope for account-wide model deployments", "Network and security perimeter", "RBAC: Azure AI User assigned here"],
+    meta: { "Resource type": "Microsoft.CognitiveServices/accounts", "RBAC scope": "account-level" }
+  },
+  "ms-foundry-project": {
+    kicker: "Foundry · Project",
+    title: "Foundry <em>project</em>",
+    text: "The development boundary inside the Foundry account. Contains agents, files, evaluations, and connections. <strong>Has its own managed identity</strong> (the <code>MI</code> badge in the diagram) which authenticates to connected services like AI Search.",
+    list: ["One project for this basic reference", "Project MI authenticates to AI Search via connection", "Required role: Search Index Data Reader on AI Search", "Multiple projects in one account isolate use cases"],
+    meta: { Boundary: "Development isolation", Identity: "Project-scoped managed identity" }
+  },
+  "ms-agent-threads": {
+    kicker: "Agent Service · Component",
+    title: "Threads <em>&amp; runs</em>",
+    text: "The conversation state machine. Each user conversation is a thread; each invocation of the agent on that thread is a run. <strong>State is persisted by Foundry</strong> — in this basic architecture, in Microsoft-managed Cosmos DB you don't see in your subscription.",
+    meta: { Persistence: "Microsoft-hosted Cosmos DB (basic)", "Production option": "Bring-your-own Cosmos DB" }
+  },
+  "ms-agent-tools": {
+    kicker: "Agent Service · Component",
+    title: "Tool <em>calls</em>",
+    text: "Orchestrates calls to connected knowledge sources and tools — in this basic reference, AI Search and the model itself. <strong>Tool selection is nondeterministic</strong> — the model decides per-request based on the system prompt and connected sources.",
+    meta: { Pattern: "LLM-decided tool routing" }
+  },
+  "ms-agent-safety": {
+    kicker: "Agent Service · Component",
+    title: "Content <em>safety</em>",
+    text: "Foundry's content filtering system: classification models for hate, sexual, self-harm, violence, profanity, and jailbreak categories. Strictness configurable per category (low/medium/high). <strong>This basic reference uses the <code>DefaultV2</code> filter</strong> — adjust per workload.",
+    meta: { Filter: "DefaultV2", Categories: "hate, sexual, self-harm, violence, profanity, jailbreak" }
+  },
+  "ms-agent-prompt": {
+    kicker: "Agent Service · Component",
+    title: "System <em>prompt</em>",
+    text: "Combined with <code>temperature</code> and <code>top_p</code> parameters and the constrained set of knowledge connections, the system prompt defines how the agent behaves across all requests. <strong>This is the closest thing to 'code' in a codeless agent</strong> — version it like code.",
+    meta: { Tunables: "system prompt, temperature, top_p, connections" }
+  },
+  "ms-connections": {
+    kicker: "Foundry · Project",
+    title: "<em>Connections</em>",
+    text: "References to external Azure resources that the project's agents can use. <strong>Connections are project-scoped</strong>; the project's managed identity authenticates through them. In this reference, the only connection is to AI Search for grounding data.",
+    list: ["Defined at project level", "Authenticated via project MI", "If different components need isolated access, use separate projects"],
+    reads: {
+      from: ["Azure AI Search", "Project managed identity"],
+      by:   ["Agent Service"]
+    },
+    meta: { "In this ref": "AI Search", Auth: "Project managed identity" }
+  },
+  "ms-foundry-models": {
+    kicker: "Foundry · Account",
+    title: "Foundry <em>Models</em> catalog",
+    text: "The models available for deployment in the Foundry account — Azure OpenAI flagship models plus partner and open-source models from the catalog, all hosted as Models-as-a-Service. <strong>This reference deploys one model</strong>; you can deploy multiple from the catalog as needed.",
+    reads: {
+      from: ["Microsoft model registry"],
+      by:   ["Model deployment"]
+    },
+    meta: { Pattern: "Models-as-a-Service (MaaS)", "This ref": "Azure OpenAI GPT, Global Standard" }
+  },
+
+  // Flow steps
+  "s1": {
+    kicker: "Step i",
+    title: "Sign in <em>via OIDC</em>",
+    text: "User authenticates against Entra ID through standard OIDC. The chat UI receives an access token.",
+    list: ["Token aud = chat UI app registration", "User upn and oid in claims", "Refresh token stored httpOnly"],
+    meta: { Flow: "OIDC authorization code + PKCE" }
+  },
+  "s2": {
+    kicker: "Step ii",
+    title: "Call Foundry <em>with user token</em>",
+    text: "UI exchanges its token for one with audience = Foundry, then sends as Bearer. Critical: <strong>the UI's managed identity is not what calls Foundry — the user's token is</strong>.",
+    meta: { Header: "Authorization: Bearer …", Audience: "https://ai.azure.com" }
+  },
+  "s3": {
+    kicker: "Step iii",
+    title: "Foundry validates <em>&amp; binds run</em>",
+    text: "Signature, expiry, audience checked. User claims extracted and bound to the thread and run. Every event in the run carries this identity in its trace.",
+    meta: { Bound: "thread, run, event" }
+  },
+  "s4": {
+    kicker: "Step iv",
+    title: "Agent emits <em>tool call</em>",
+    text: "Model selects performance.get_twr based on the user prompt. Orchestrator validates the call against the tool schema before dispatch.",
+    meta: { Tool: "performance.get_twr" }
+  },
+  "s5": {
+    kicker: "Step v",
+    title: "First OBO <em>exchange</em>",
+    text: "Gateway presents its own MI plus the user's token as an assertion. Entra issues a new token: aud = Performance MCP, sub = user, azp = gateway. <strong>The user identity is preserved, the audience changes.</strong>",
+    list: ["Cached per (user, target, scopes) until expiry", "Fails if user lacks scope on target", "Conditional Access policies still apply"],
+    meta: { "Grant type": "urn:ietf:params:oauth:grant-type:jwt-bearer" }
+  },
+  "s6": {
+    kicker: "Step vi",
+    title: "Call domain MCP <em>with OBO token</em>",
+    text: "JSON-RPC over MCP. Authorization: Bearer with the freshly-minted Performance-scoped token.",
+    meta: { Protocol: "MCP / JSON-RPC", Transport: "HTTPS" }
+  },
+  "s7": {
+    kicker: "Step vii",
+    title: "Domain MCP <em>validates &amp; checks scope</em>",
+    text: "MCP independently validates signature, expiry, audience. Then enforces its own scope check — <strong>even though the gateway already let it through</strong>. Defense in depth: every hop verifies.",
+    meta: { Pattern: "Defense in depth" }
+  },
+  "s8": {
+    kicker: "Step viii",
+    title: "Second OBO <em>exchange</em>",
+    text: "Performance MCP needs a Snowflake-bound token. Same OBO grant, with the original user assertion re-presented. <strong>Re-presented, not regenerated</strong> — that's what threads identity all the way through.",
+    meta: { Audience: "Snowflake external OAuth app" }
+  },
+  "s9": {
+    kicker: "Step ix",
+    title: "Snowflake MCP <em>brokers session</em>",
+    text: "Pool lookup, warehouse routing, query timeout enforcement. Snowflake's external OAuth integration maps the upn claim to a Snowflake user — CURRENT_USER() resolves to the actual person.",
+    meta: { Integration: "Snowflake external OAuth + Entra" }
+  },
+  "s10": {
+    kicker: "Step x",
+    title: "Row-access <em>policy fires</em>",
+    text: "Policies on holdings, transactions, accounts reference CURRENT_USER() in their predicate. <strong>The database — not the application — is the enforcement point.</strong> If identity broke upstream, query returns empty: the safe failure mode.",
+    meta: { Layer: "Snowflake DDL · ROW ACCESS POLICY" }
+  }
+};
+
+const tabs = document.querySelectorAll('.tab');
+const views = document.querySelectorAll('.view');
+const panel = document.getElementById('panel');
+const panelEmpty = document.getElementById('panel-empty');
+const panelContent = document.getElementById('panel-content');
+
+tabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    const target = tab.dataset.view;
+    tabs.forEach(t => t.classList.toggle('active', t === tab));
+    views.forEach(v => v.classList.toggle('active', v.id === `view-${target}`));
+    clearSelection();
+  });
+});
+
+function clearSelection() {
+  document.querySelectorAll(
+    '.node, .mcp, .broker, .step, ' +
+    '.miro-card, .miro-sub, .miro-foundry-account, .miro-foundry-project, ' +
+    '.miro-zone, .miro-vnet, .miro-subnet, ' +
+    '.cg-card, .cg-loop-stage, .cg-governance'
+  ).forEach(el => el.classList.remove('active'));
+  panelEmpty.style.display = 'block';
+  panelContent.classList.remove('active');
+  panelContent.innerHTML = '';
+}
+
+function showDetail(key, sourceEl) {
+  const d = DETAILS[key];
+  if (!d) return;
+
+  // Clear active state on every clickable card variant across all plates.
+  document.querySelectorAll(
+    '.node, .mcp, .broker, .step, ' +
+    '.miro-card, .miro-sub, .miro-foundry-account, .miro-foundry-project, ' +
+    '.miro-zone, .miro-vnet, .miro-subnet, ' +
+    '.cg-card, .cg-loop-stage, .cg-governance'
+  ).forEach(el => el.classList.remove('active'));
+  if (sourceEl) sourceEl.classList.add('active');
+
+  panelEmpty.style.display = 'none';
+  panelContent.classList.add('active');
+
+  let html = `
+    <div class="panel-kicker">${d.kicker}</div>
+    <h3 class="panel-title">${d.title}</h3>
+    <div class="panel-rule"></div>
+    <div class="panel-text">${d.text}</div>
+  `;
+
+  if (d.list && d.list.length) {
+    html += '<ul class="panel-list">';
+    d.list.forEach(item => { html += `<li>${item}</li>`; });
+    html += '</ul>';
+  }
+
+  if (d.reads) {
+    html += '<div class="panel-reads">';
+    html += '<div class="panel-reads-label">References</div>';
+    if (d.reads.from && d.reads.from.length) {
+      html += '<div class="panel-reads-row"><span class="panel-reads-arrow">↓</span><span class="panel-reads-key">reads</span><span class="panel-reads-list">';
+      html += d.reads.from.join(' &middot; ');
+      html += '</span></div>';
+    }
+    if (d.reads.by && d.reads.by.length) {
+      html += '<div class="panel-reads-row"><span class="panel-reads-arrow">↑</span><span class="panel-reads-key">read by</span><span class="panel-reads-list">';
+      html += d.reads.by.join(' &middot; ');
+      html += '</span></div>';
+    }
+    html += '</div>';
+  }
+
+  if (d.meta) {
+    html += '<dl class="panel-meta">';
+    Object.entries(d.meta).forEach(([k, v]) => {
+      html += `<dt>${k}</dt><dd>${v}</dd>`;
+    });
+    html += '</dl>';
+  }
+
+  panelContent.innerHTML = html;
+}
+
+// Single delegated handler. Uses closest() so a click resolves to the
+// innermost element with data-key — fixes the bug where nested cards
+// (e.g. Agent Service sub-tiles inside the Agent Service card, or the
+// Connections card inside the Foundry project inside the Foundry account)
+// would bubble and have the outermost ancestor win.
+document.addEventListener('click', (e) => {
+  const target = e.target.closest('[data-key]');
+  if (!target) return;
+  // Only respond to clicks on elements that have detail content; ignore
+  // ancestor containers that happen to carry data-key for grouping but
+  // would otherwise hijack clicks meant for their children.
+  const key = target.dataset.key;
+  if (!DETAILS[key]) return;
+  e.stopPropagation();
+  showDetail(key, target);
+});
+</script>
+
+</body>
+</html>
